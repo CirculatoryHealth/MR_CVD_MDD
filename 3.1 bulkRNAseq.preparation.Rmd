@@ -1,0 +1,1288 @@
+---
+title: "Preparation bulkRNAseq analyses"
+author: "[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    cache: yes
+    code_folding: hide
+    collapse: yes
+    df_print: paged
+    fig.align: center
+    fig_caption: yes
+    fig_height: 6
+    fig_retina: 2
+    fig_width: 7
+    highlight: tango
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+mainfont: Arial
+subtitle: Accompanying 'AE_TEMPLATE'
+editor_options:
+  chunk_output_type: inline
+bibliography: references.bib
+knit: worcs::cite_all
+---
+
+# General Setup
+```{r echo = FALSE}
+rm(list = ls())
+```
+
+```{r LocalSystem, echo = FALSE}
+source("scripts/local.system.R")
+```
+
+```{r Source functions}
+source("scripts/functions.R")
+```
+
+```{r loading_packages, message=FALSE, warning=FALSE}
+source("scripts/pack02.packages.R")
+
+```
+
+```{r Setting: Colors}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+source("scripts/colors.R")
+
+```
+
+```{r setup_notebook, include=FALSE}
+# We recommend that you prepare your raw data for analysis in 'prepare_data.R',
+# and end that file with either open_data(yourdata), or closed_data(yourdata).
+# Then, uncomment the line below to load the original or synthetic data
+# (whichever is available), to allow anyone to reproduce your code:
+# load_data()
+
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/', 
+                      warning = TRUE, # show warnings during codebook generation
+                      message = TRUE, # show messages during codebook generation
+                      error = TRUE, # do not interrupt codebook generation in case of errors, 
+                                    # usually better for debugging
+                      echo = TRUE,  # show R code
+                      eval = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_minimal())
+# pander::panderOptions("table.split.table", Inf)
+library("worcs")
+library("rmarkdown")
+
+```
+
+# ERA-CVD 'druggable-MI-targets'
+
+<!-- ![ERA-CVD logo]("Users/swvanderlaan/iCloud/Genomics/Projects/#Druggable-MI-Genes/Administration/ERA-CVD\ Logo_CMYK.jpg") -->
+
+For the ERA-CVD 'druggable-MI-targets' project (grantnumber: 01KL1802) we performed two related RNA sequencing (RNAseq) experiments:
+
+1)  conventional ('bulk') RNAseq using RNA extracted from carotid plaque samples, n ± 700. As of `r Today.Report` all samples have been selected and RNA has been extracted; quality control (QC) was performed and we have a dataset of 635 samples.
+
+2)  single-cell RNAseq (scRNAseq) of at least n = 40 samples (20 females, 20 males). As of `r Today.Report` data is available of 40 samples (3 females, 15 males), we are extending sampling to get more female samples.
+
+Plaque samples are derived from carotid endarterectomies as part of the [Athero-Express Biobank Study](https://doi.org/10.1007/s10564-004-2304-6) which is an ongoing study in the UMC Utrecht.
+
+
+## This notebook 
+
+In this notebook we setup the files for the bulk RNAseq analyses. 
+
+
+## Background
+
+Here we obtain data from the `r TRAIT_OF_INTEREST` in plaques.
+
+-   `Genes.xlsx` - list of genes of interest. 
+-   `Variants.xlsx` - list of variant(s) of interest. 
+
+```{r targets, message=FALSE, warning=FALSE}
+library(openxlsx)
+
+gene_list_df <- read.xlsx(paste0(TARGET_loc, "/targets.xlsx"), sheet = "Genes")
+
+gene_list <- unlist(gene_list_df$Gene)
+gene_list
+
+variant_list <- read.xlsx(paste0(TARGET_loc, "/targets.xlsx"), sheet = "Variants")
+
+DT::datatable(variant_list)
+
+```
+
+
+# Load data
+
+First we will load the data:
+
+-   bulk RNA sequencing (RNAseq) experimental data from carotid plaques
+-   Athero-Express clinical data.
+
+## Bulk RNAseq data
+
+Here we load the latest dataset from our Athero-Express bulk RNA experiment d.d. 2023-04-07 mapped against cDNA reference of all transcripts in GRCh38.p13 and Ensembl 108 (GRCh38.p13/ENSEMBL_GENES_108 accessed on 18-01-2023). These include raw read counts of all non-ribosomal, protein coding genes with existing HGNC gene name. All read counts are corrected for UMI sampling by `raw.genecounts=round(-4096*(log(1-(raw.genecounts/4096))))` (note that `log` in this case equals 'natural logarithm', i.e. `ln`). These data include the patients that passed the QC based on [Mokry, M., Boltjes, A., Slenders, L.  _et al._ Nat Cardiovasc Res 1, 1140–1155 (2022)](https://doi.org/10.1038/s44161-022-00171-0)
+
+These bulk RNAseq data are filtered and corrected:
+
+-   UMI corrected
+-   unmappable genes are excluded
+
+However, pre-processing of the data may be required for some analyses. Usually, a normalisation for sequencing depth and quantile normalisation is recommended.
+
+
+```{r LoadData}
+# bulk RNAseq data; first run
+bulkRNA_counts_raw_qc_umicorr_firstrun <- fread(paste0(AERNA_loc,"/FIRSTRUN/raw_data_bulk/raw_counts_batch1till11_qc_umicorrected.txt"))
+# bulk RNAseq data; re-run (deeper sequenced)
+bulkRNA_counts_raw_qc_umicorr <- fread(paste0(AERNA_loc,"/RERUN/PROCESSED/AE_bulk_RNA_batch1.minRib.PC_07042023.txt"))
+
+# batch information
+bulkRNA_meta <- fread(paste0(AERNA_loc,"/FIRSTRUN/raw_data_bulk/metadata_raw_counts_batch1till11.txt"))
+
+
+```
+
+Quick peek at the counts and meta-data of the RNAseq experiment.
+
+```{r QuickPeek}
+
+head(bulkRNA_counts_raw_qc_umicorr_firstrun)
+head(bulkRNA_counts_raw_qc_umicorr)
+
+head(bulkRNA_meta)
+```
+
+### Annotating and fixing the RNAseq data
+
+There are two small issues we need to address:
+
+-   annotation with chromosome, start/end, strand, and gene information
+-   fixing ±`Inf` and `NA` values
+
+#### Fixing infinite values
+
+```{r}
+library(dplyr)
+cat("\nThere are a couple of samples with infinite gene counts.\n")
+temp <- bulkRNA_counts_raw_qc_umicorr %>% 
+  dplyr::mutate_if(is.numeric, as.integer) 
+
+summary(temp$ae2341)
+summary(temp$ae3078)
+summary(temp$ae1422)
+summary(temp$ae2305)
+summary(temp$ae1256)
+summary(temp$ae411)
+summary(temp$ae1227)
+
+cat("\nFixing the infinite gene counts.\n")
+temp <- temp %>%
+  mutate(across(is.numeric, ~replace_na(.x, max(.x, na.rm = TRUE)))) %>%
+  dplyr::mutate(across( # For every column you want...
+      # everything(), # ...change all studynumber
+      dplyr::starts_with("ae"), # ...change all studynumber
+      ~ dplyr::case_when(
+        . ==  Inf ~ max(.[is.finite(.)]), # +Inf becomes the finite max.
+        . == -Inf ~ min(.[is.finite(.)]), # -Inf becomes the finite min.
+        . == -0 ~ min(.[is.finite(.)]), # -0 becomes the finite min.
+        TRUE ~ . # Other values stay the same.
+        )
+      )
+    )  
+
+summary(temp$ae2341)
+summary(temp$ae3078)
+summary(temp$ae1422)
+summary(temp$ae2305)
+summary(temp$ae1256)
+summary(temp$ae411)
+summary(temp$ae1227)
+
+```
+
+#### Annotating
+
+For annotations we use the `annotables` from Stephen Turner.
+```{r}
+library(dplyr)
+library(annotables)
+# Columns of interest
+# entrez
+# symbol
+# chr
+# start
+# end
+# strand
+# biotype
+# description
+
+names(temp)[names(temp) == "gene"] <- "ENSEMBL_gene_ID"
+
+cat("\nChecking existence of duplicate ENSEMBL IDs - there shouldn't be any.\n")
+id <- temp$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
+rm(id)
+
+```
+
+```{r}
+cat("\nAnnotating with b37.\n")
+head(temp)
+dim(temp)
+bulkRNA_counts <- temp %>% 
+  # arrange(p.adjusted) %>% 
+  # head(20) %>% 
+  inner_join(grch37, by=c("ENSEMBL_gene_ID"="ensgene")) %>%
+  # select(gene, estimate, p.adjusted, symbol, description) %>% 
+  relocate(entrez, symbol, chr, start, end, strand, biotype, description, 
+           .before = ae1) %>% # put everything before sample ae1
+  dplyr::filter(duplicated(ENSEMBL_gene_ID) == FALSE)
+head(bulkRNA_counts)
+
+
+id <- bulkRNA_counts$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
+
+```
+
+## Clinical data
+
+Loading Athero-Express clinical data that we previously saved in an RDS file.
+
+```{r LoadAEDB}
+AEDB.CEA <- readRDS(file = paste0(OUT_loc, "/20230614.",PROJECTNAME,".AEDB.CEA.RDS"))
+
+```
+
+### Fix STUDY_NUMBER
+
+We will fix the `STUDY_NUMBER` to match the bulkRNAseq data.
+
+```{r FixStudyNumber}
+
+AEDB.CEA$STUDY_NUMBER <- paste0("ae", AEDB.CEA$STUDY_NUMBER)
+head(AEDB.CEA$STUDY_NUMBER)
+
+```
+
+
+# AERNA
+
+## Tidy data
+
+We have collected the clinical data, Athero-Express Biobank Study `AEDB` and, the UMI-corrected, filtered bulk RNAseq data, `bulkRNA_counts` and its meta-data, `bulkRNA-meta`.
+
+Here we will clean up the data and create a `SummarizedExperiment()` object for downstream analyses anad visualizations.
+
+```{r Parsing RNAseq, message=FALSE, warning=FALSE}
+AEDB.CEA.sampleList <- AEDB.CEA$STUDY_NUMBER
+
+# first 9 columns
+# ENSEMBL_gene_ID
+# entrez
+# symbol
+# chr
+# start
+# end
+# strand
+# biotype
+# description
+
+# match up with meta data of RNAseq experiment
+bulkRNA_countsFilt <- bulkRNA_counts %>%
+  drop_na(chr) %>%   # remove rows that have no information of start, end, chromosome and/or strand
+  dplyr::select(1:9, one_of(sort(as.character(AEDB.CEA.sampleList)))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+head(bulkRNA_countsFilt)
+dim(bulkRNA_countsFilt)
+
+```
+
+```{r}
+study_samples_bulkNEW <- colnames(bulkRNA_counts[, -(1:9)])
+# length(study_samples_bulkNEW)
+# 654
+study_samples_AEDBCEA <- c(AEDB.CEA$STUDY_NUMBER)
+# length(study_samples_AEDBCEA)
+# 2595
+
+setdif_samples_NEWvsAEDBCEA <- setdiff(study_samples_bulkNEW, study_samples_AEDBCEA)
+# setdif_samples_NEWvsAEDBCEA # 32
+setdif_samples_AEDBCEAvsNEW <- setdiff(study_samples_AEDBCEA, study_samples_bulkNEW)
+# setdif_samples_AEDBCEAvsNEW # 1973
+
+AEDB_filt <- AEDB.CEA[AEDB.CEA$STUDY_NUMBER %in% study_samples_bulkNEW,]
+table(AEDB_filt$Artery_summary, AEDB_filt$Gender)
+```
+
+```{r}
+
+# Cut up bulkRNA_countsFilt into 'assay' and 'ranges' part
+counts <- as.data.frame(bulkRNA_countsFilt[,-(1:9)])  ## assay part
+# counts <- counts %>% mutate_if(is.numeric, as.integer)
+
+rownames(counts) <- bulkRNA_countsFilt$ENSEMBL_gene_ID  ## assign rownames
+
+id <- bulkRNA_countsFilt$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
+
+bulkRNA_rowRanges <- GRanges(bulkRNA_countsFilt$chr,	 ## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
+                     IRanges(bulkRNA_countsFilt$start, bulkRNA_countsFilt$end),
+                     strand = bulkRNA_countsFilt$strand,
+                     feature_id = bulkRNA_countsFilt$ENSEMBL_gene_ID) #, df$pid)
+names(bulkRNA_rowRanges) <- bulkRNA_rowRanges$feature_id
+
+# ?org.Hs.eg.db
+# ?AnnotationDb
+
+bulkRNA_rowRanges$symbol <- mapIds(org.Hs.eg.db,
+                     keys = bulkRNA_rowRanges$feature_id,
+                     column = "SYMBOL",
+                     keytype = "ENSEMBL",
+                     multiVals = "first")
+
+# Reference: https://shiring.github.io/genome/2016/10/23/AnnotationDbi
+
+# gene dataframe for EnsDb.Hsapiens.v86
+gene_dataframe_EnsDb <- ensembldb::select(EnsDb.Hsapiens.v86, keys = bulkRNA_rowRanges$feature_id,
+                                          columns = c("ENTREZID", "SYMBOL", "GENEBIOTYPE"), keytype = "GENEID")
+colnames(gene_dataframe_EnsDb) <- c("Ensembl", "Entrez", "HGNC", "GENEBIOTYPE")
+colnames(gene_dataframe_EnsDb) <- paste(colnames(gene_dataframe_EnsDb), "EnsDb86", sep = "_")
+head(gene_dataframe_EnsDb)
+
+bulkRNA_rowRanges$GENEBIOTYPE_EnsDb86 <- gene_dataframe_EnsDb$GENEBIOTYPE_EnsDb86[match(bulkRNA_rowRanges$feature_id, gene_dataframe_EnsDb$Ensembl_EnsDb86)]
+bulkRNA_rowRanges
+
+# merging the two dataframes by HGNC
+# bulkRNA_rowRangesHg19Ensemblb86 <- GRanges(merge(bulkRNA_rowRanges, gene_dataframe_EnsDb, by.x = "feature_id", by.y = "Ensembl_EnsDb86", sort = FALSE, all.x = TRUE))
+# names(bulkRNA_rowRangesHg19Ensemblb86) <- bulkRNA_rowRangesHg19Ensemblb86$feature_id
+# bulkRNA_rowRangesHg19Ensemblb86
+
+# temp <- as.data.frame(table(bulkRNA_rowRanges$GENEBIOTYPE_EnsDb86))
+# colnames(temp) <- c("GeneBiotype", "Count")
+# 
+# ggpubr::ggbarplot(temp, x = "GeneBiotype", y = "Count",
+#                   color = "GeneBiotype", fill = "GeneBiotype",
+#                   xlab = "gene type") + 
+#   theme(axis.text.x = element_text(angle = 45))
+# rm(temp)
+
+```
+
+```{r Parse ClinicalData RNAseq}
+# match up with meta data of RNAseq experiment
+bulkRNA_meta_filt <- bulkRNA_meta %>%
+  dplyr::filter(study_number %in% AEDB.CEA.sampleList) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+
+# combine meta data from experiment with clinical data
+bulkRNA_meta_clin <- merge(bulkRNA_meta_filt, AEDB.CEA, by.x = "study_number", by.y = "STUDY_NUMBER",
+                           sort = FALSE, all.x = TRUE)
+
+bulkRNA_meta_clin %<>%
+  # mutate(macrophages = factor(macrophages, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(smc = factor(smc, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(calcification = factor(calcification, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(collagen = factor(collagen, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(fat = factor(fat, levels = c("no fat", "< 40% fat", "> 40% fat"))) %>% 
+  mutate(study_number_row = study_number) %>%
+  as.data.frame() %>%
+  column_to_rownames("study_number_row")
+
+head(bulkRNA_meta_clin)
+dim(bulkRNA_meta_clin)
+
+```
+
+## SummarizedExperiment
+
+We make a `SummarizedExperiment` for the RNAseq data. We make sure to only include the samples we need based on informed consent and we include only the requested variables.
+
+First, we define the variables we need.
+
+```{r}
+
+# Baseline table variables
+basetable_vars = c("Hospital", "ORyear", "Artery_summary",
+                   "Age", "Gender", 
+                   # "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
+                   "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   # "hsCRP_plasma",
+                   "systolic", "diastoli", "GFR_MDRD", "BMI", 
+                   "KDOQI", "BMI_WHO",
+                   "SmokerStatus", "AlcoholUse",
+                   "DiabetesStatus", 
+                   "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                   "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
+                   "Symptoms.Update2G", "Symptoms.Update3G",
+                   "restenos", "stenose", "Artery_summary",
+                   "CAD_history", "PAOD", "Peripheral.interv", 
+                   "EP_composite", "EP_composite_time", "EP_major", "EP_major_time",
+                   "MAC_rankNorm", "SMC_rankNorm", "Macrophages.bin", "SMC.bin",
+                   "Neutrophils_rankNorm", "MastCells_rankNorm",
+                   "IPH.bin", "VesselDensity_rankNorm",
+                   "Calc.bin", "Collagen.bin", 
+                   "Fat.bin_10", "Fat.bin_40", 
+                   "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
+                   "PCSK9_plasma", "PCSK9_plasma_rankNorm")
+
+basetable_bin = c("Gender", "Artery_summary",
+                  "KDOQI", "BMI_WHO",
+                  "SmokerStatus", "AlcoholUse",
+                  "DiabetesStatus", 
+                  "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                  "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
+                  "Symptoms.Update2G", "Symptoms.Update3G",
+                  "restenos", "stenose", "Artery_summary",
+                  "CAD_history", "PAOD", "Peripheral.interv", 
+                  "EP_composite", "Macrophages.bin", "SMC.bin",
+                  "IPH.bin", 
+                  "Calc.bin", "Collagen.bin", 
+                  "Fat.bin_10", "Fat.bin_40", 
+                  "OverallPlaquePhenotype", "Plaque_Vulnerability_Index")
+# basetable_bin
+
+basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
+# basetable_con
+
+```
+
+
+Next, we are constructing the `SummarizedExperiment`.
+```{r RNAseq to SE}
+cat("* loading data ...\n")
+
+# this is all the data passing RNAseq quality control and UMI-corrected
+# - includes 656 patients
+# - after filtering on informed consent and artery type, the end sample size should be 632
+# - after filtering on 'no commercial business' based on informed consent, there are fewer samples: 608
+dim(bulkRNA_countsFilt)
+dim(counts)
+cat("\n* making a SummarizedExperiment ...\n")
+cat("  > getting counts\n")
+head(counts)
+head(bulkRNA_countsFilt)
+
+cat("  > meta data\n")
+temp_coldat <- data.frame(STUDY_NUMBER = names(bulkRNA_countsFilt[,10:631]), 
+                          SampleType = "plaque", RNAseqType = "3' RNAseq", 
+                          row.names = names(bulkRNA_countsFilt[,10:631]))
+
+cat("  > clinical data\n")
+# bulkRNA_meta_clin_COMMERCIAL <- subset(bulkRNA_meta_clin, select = c("study_number", basetable_vars))
+bulkRNA_meta_clin_ACADEMIC <- subset(bulkRNA_meta_clin, select = c("study_number", basetable_vars))
+
+# temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin_COMMERCIAL, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
+temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin_ACADEMIC, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
+
+rownames(temp_coldat_clin) <- temp_coldat_clin$STUDY_NUMBER
+dim(temp_coldat_clin)
+
+cat("  > construction of the SE\n")
+(AERNASE <- SummarizedExperiment(assays = list(counts = as.matrix(counts)),
+                                colData = temp_coldat_clin,
+                                rowRanges = bulkRNA_rowRanges,
+                                metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected"))
+
+cat("\n* removing intermediate files ...\n")
+rm(temp_coldat, temp_coldat_clin, temp)
+
+```
+
+Do the study numbers correspond between metadata and expression data?
+
+```{r matching_names}
+## check whether rownames metadata and colnames counts are identical
+all(colnames(AERNASE) == colnames(counts))
+
+```
+
+So, now we have raw counts for all patients included in the bulk RNAseq data,
+with all clinical data annotated to them.
+
+Some of the patients might be missing in certain variables:
+
+```{r missing_values, eval = FALSE}
+# We know that some of the patients of the RNAseq is not included in some variables
+which(is.na(AERNASE$Gender)) 
+
+missing_values <- which(is.na(AERNASE$Gender))
+missing_values
+```
+
+No need to remove missing samples based on a variable, since we will make a
+DESeq2 object using an empty model.
+
+```{r remove_missing, eval = FALSE}
+(AERNASE <- AERNASE[,])
+
+# (AERNASE <- AERNASE[, -missing_values])
+# (se <- se[, se$sex == "male"])
+
+
+```
+
+## Baseline
+
+### Preparation
+
+```{r }
+cat("====================================================================================================")
+cat("SELECTION THE SHIZZLE")
+AERNASEClinData <- as.tibble(colData(AERNASE))
+
+cat("- sanity checking PRIOR to selection")
+library(data.table)
+require(labelled)
+ae.gender <- to_factor(AERNASEClinData$Gender)
+ae.hospital <- to_factor(AERNASEClinData$Hospital)
+table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"), useNA = "ifany")
+
+ae.artery <- to_factor(AERNASEClinData$Artery_summary)
+table(ae.artery, ae.gender, dnn = c("Sex", "Artery"), useNA = "ifany")
+
+rm(ae.gender, ae.hospital, ae.artery)
+
+# AERNASEClinData[1:10, 1:10]
+dim(AERNASEClinData)
+# DT::datatable(AERNASEClinData)
+
+```
+
+
+Showing the baseline table for the scRNAseq data in 39 CEA patients with
+informed consent.
+
+```{r Baseline: Visualize}
+cat("===========================================================================================")
+cat("CREATE BASELINE TABLE")
+
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AERNASEClinData.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                                  # factorVars = basetable_bin,
+                                                  # strata = "Gender",
+                                                  data = AERNASEClinData, includeNA = TRUE), 
+                                   nonnormal = c(), 
+                                   quote = FALSE, showAllLevels = TRUE,
+                                   format = "p", 
+                                   contDigits = 3)[,1:2]
+
+```
+### Writing baseline
+Writing the baseline table to Excel format.
+
+```{r }
+# Write basetable
+require(openxlsx)
+# write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AERNA.CEA.608pts.after_qc.IC_commercial.BaselineTable.xlsx"),
+#            format(as.data.frame(AERNASEClinData.CEA.tableOne), digits = 5, scientific = FALSE),
+#            rowNames = TRUE,
+#            colNames = TRUE, 
+#            sheetName = "AERNA_CEA", overwrite = TRUE)
+
+write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AERNA.CEA.622pts.after_qc.IC_academic.BaselineTable.xlsx"), 
+           format(as.data.frame(AERNASEClinData.CEA.tableOne), digits = 5, scientific = FALSE),
+           rowNames = TRUE, 
+           colNames = TRUE, 
+           sheetName = "AERNA_CEA", overwrite = TRUE)
+
+```
+
+
+
+# Expression differences
+
+From here we can analyze whether specific genes differ between groups, or do this for the entire gene set as part of DE analysis, and then select our genes of interest. Let's start with the former.
+
+## Prepare DDS and VSD
+
+The dds raw counts need normalization and log transformation first.
+
+```{r model_exploration, cache = TRUE}
+AERNAdds <- DESeqDataSet(AERNASE, design = ~ 1)
+
+# Determine the size factors to use for normalization
+AERNAdds <- estimateSizeFactors(AERNAdds)
+
+# sizeFactors(AERNAdds)
+
+# Extract the normalized counts
+normalized_counts <- counts(AERNAdds, normalized = TRUE)
+# head(normalized_counts)
+
+# Log transform counts for QC
+AERNAvsd <- vst(AERNAdds, blind = TRUE)
+
+# There is a message stating the following.
+# 
+# -- note: fitType='parametric', but the dispersion trend was not well captured by the
+#    function: y = a/x + b, and a local regression fit was automatically substituted.
+#    specify fitType='local' or 'mean' to avoid this message next time.
+#    
+# No action is required. 
+# 
+# For more information check: https://www.biostars.org/p/119115/
+
+```
+
+## Extract data of interest
+
+From here, extract the gene expression values, plus gene identifier, annotate with gene symbol, and select the genes of our interest.
+
+```{r expression_data_selection}
+expression_data <- assay(AERNAvsd)
+
+# extract expression values from vsd, including ensembl names
+expression_data <- as_tibble(data.frame(gene_ensembl = rowRanges(AERNAvsd)$feature_id, assay(AERNAvsd))) %>%
+     mutate_at(vars(c("gene_ensembl")), list(as.character)) ## gene_ensembl needs to be character for annotation to work
+
+# annotations
+# gene symbol - via org.Hs.eg.db
+# columns(org.Hs.eg.db)
+expression_data$symbol <- mapIds(org.Hs.eg.db,
+                    keys = expression_data$gene_ensembl,
+                    column = "SYMBOL",
+                    keytype = "ENSEMBL",
+                    multiVals = "first")
+
+# tidy and subset
+expression_data_sel <- expression_data %>%
+     dplyr::select(gene_ensembl, symbol, everything()) %>%
+     # filter(symbol == "APOE" | symbol == "TRIB3") %>% # filter APOE and TRIB3
+     dplyr::filter(symbol %in% gene_list)
+
+head(expression_data_sel)
+
+# tidy and subset non-selected genes
+set.seed(141619)
+expression_data_sample <- expression_data %>%
+     dplyr::select(gene_ensembl, symbol, everything()) %>%
+     sample_n(1000) %>%
+     unite(symbol_ensembl, symbol, gene_ensembl, sep = "_", remove = FALSE)
+
+expression_data_sample_mean <- expression_data_sample %>%
+  select_if(is.numeric) %>%
+  colMeans() %>%
+  as_tibble(rownames = "study_number") %>%
+  dplyr::rename(expression_value_sample = value)
+
+```
+
+Furthermore, the expression_data_sel df was gathered into a long form `df` for annotation with symptoms variables from the `vsd` object, and later visualization and statistics.
+
+```{r gather}
+# gather expression_data_sel df into long df form for annotation, plotting and statistics
+expression_long <-
+     gather(expression_data_sel, key = "study_number", value = "expression_value", -c(gene_ensembl, symbol))
+
+# old school way
+# Annotate with smoking variables
+# sample_ids <- expression_long$study_number
+# mm <- match(expression_long$study_number, rownames(colData(vsd)))
+#
+# ## Add traits to df
+# ## Binary traits
+# expression_long$sex <- colData(vsd)$sex[mm]
+# expression_long$testosterone <- colData(vsd)$testosterone[mm]
+# expression_long$t_e2_ratio <- colData(vsd)$t_e2_ratio[mm]
+
+# new school way
+plaque_phenotypes_cat <- c("Macrophages.bin",
+                           "SMC.bin",
+                           "Calc.bin",
+                           "Collagen.bin",
+                           "Fat.bin_10", 
+                           # "Fat.bin_40",
+                           "IPH.bin")
+
+plaque_phenotypes_num <- c("MAC_rankNorm", #"macmean0",
+                           "SMC_rankNorm", #"smcmean0",
+                           # "MastCells_rankNorm", #"mast_cells_plaque",
+                           # "Neutrophils_rankNorm", #"neutrophils",
+                           "VesselDensity_rankNorm",
+                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")
+
+expression_long <- expression_long %>%
+  left_join(bulkRNA_meta_clin %>% dplyr::select(study_number,
+                                       plaque_phenotypes_cat,
+                                       plaque_phenotypes_num,
+                                       epmajor.3years, 
+                                       #epmajor.30days,
+                                       AsymptSympt2G,
+                                       Gender, Hospital),
+            by = "study_number") %>%
+  mutate(epmajor_3years_yn = str_replace_all(epmajor.3years, c("Excluded" = "yes", "Included" = "no"))) #%>%
+  # mutate(epmajor.30days_yn = str_replace_all(epmajor.30days, c("Excluded" = "yes", "Included" = "no")))
+
+head(expression_long)
+
+# expression_long %>%
+#   write_tsv("genes_interest_expression.txt")
+
+```
+
+## Gene expression - distribution
+
+### Filter genes
+
+In case some genes are not available in our data we could filter them here.
+
+```{r list target genes}
+gene_list
+```
+
+This code is just an example to filter the list from genes that are not in the data.
+
+- _COL3A_ ==> not found
+- _COL2A_ ==> not found
+
+```{r filter target genes}
+gene_list_rm <- c("COL3A", "COL2A") 
+
+temp = gene_list[!gene_list %in% gene_list_rm]
+
+gene_list_qc <- c(temp)
+
+# gene_list_qc <- gene_list
+# 
+# for debug
+# gene_list_qc_replace <- c("MRTFA")
+
+
+```
+
+### Plotting expression
+
+**Figure 1: Expression of genes of interest: boxplots**
+
+```{r boxplots_expression}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Boxplots")), 
+       dir.create(file.path(QC_loc, "/Boxplots")), 
+       FALSE)
+BOX_loc = paste0(QC_loc,"/Boxplots")
+
+for(GENE in gene_list_qc){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  
+  compare_means(expression_value ~ Gender, data = temp)
+  
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "Gender",
+                          y = "expression_value",
+                          color = "Gender",
+                          palette = "npg",
+                          add = "jitter",
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
+                          ) + stat_compare_means()
+  # print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.ps"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+**Figure 2A: Expression of genes of interest: histograms**
+
+```{r hist_expression, message=FALSE, warning=FALSE}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Histograms")), 
+       dir.create(file.path(QC_loc, "/Histograms")), 
+       FALSE)
+HISTOGRAM_loc = paste0(QC_loc,"/Histograms")
+
+for(GENE in gene_list_qc){
+  # cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  p1 <- ggpubr::gghistogram(temp,
+                          x = "expression_value",
+                          y = "..count..",
+                          color = "Gender", fill = "Gender",
+                          palette = "npg",
+                          add = "median",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  # print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
+  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
+  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.ps"), plot = last_plot())
+
+  rm(temp, p1 )
+}
+
+```
+
+**Figure 2B: Expression of genes of interest: density plots**
+
+```{r dens_expression, message=FALSE, warning=FALSE}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Density")), 
+       dir.create(file.path(QC_loc, "/Density")), 
+       FALSE)
+DENSITY_loc = paste0(QC_loc,"/Density")
+
+for(GENE in gene_list_qc){
+  # cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  p1 <- ggpubr::gghistogram(temp,
+                          x = "expression_value",
+                          y = "..density..",
+                          color = "Gender", fill = "Gender",
+                          palette = "npg",
+                          add = "median",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  # print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
+  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
+  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.ps"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+## Compare expression to the expression of a sample of 1,000 genes
+
+**Figure 3: comparing expression of genes of interest to mean expression of a sample of 1,000 random genes**
+
+```{r boxplots_expression_comparison, message=FALSE, warning=FALSE}
+
+expression_wide <- expression_long %>%
+  tidyr::unite("symbol_ensembl", symbol:gene_ensembl, remove = TRUE, sep = "_") %>%
+  # dplyr::select(-gene_ensembl, -symbol) %>%
+  tidyr::spread(key = symbol_ensembl, value = expression_value) 
+
+```
+
+```{r }
+# the next 3 lines of code gave an error when selecting for genes_interest, since one of the genes of interest is missing: FGF3 is not in the data set. So, we need to select for the other 15 genes.
+
+temp <- expression_long %>%
+  tidyr::unite("symbol_ensembl", symbol:gene_ensembl, remove = TRUE, sep = "_") %>%
+  dplyr::select(symbol_ensembl)
+temp <- temp %>% 
+  tidyr::separate(symbol_ensembl, c("symbol", "gene_ensembl"), remove = FALSE) %>%
+  dplyr::distinct(., symbol_ensembl, .keep_all = TRUE)
+
+symbol_ensembl_gene_list_qc <- temp[temp$symbol %in% gene_list_qc,]$symbol_ensembl
+```
+
+```{r}
+expression_wide2 <- expression_wide %>%
+  left_join(expression_data_sample_mean, by = "study_number") %>%
+  dplyr::select(study_number, symbol_ensembl_gene_list_qc, expression_value_sample)
+
+expression_long2 <- expression_wide2 %>%
+  gather(gene, expression_value, -study_number) %>%
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Random genes"))) #%>%
+  # mutate(gene = factor(gene, levels = c("Random genes", gene_list_qc)))
+
+mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
+# head(expression_long2)
+# 
+
+  p1 <- ggpubr::ggboxplot(expression_long2,
+                          x = "gene",
+                          y = "expression_value",
+                          color = uithof_color[16],
+                          add = "jitter",
+                          add.params = list(size = 3, jitter = 0.3), 
+                          ylab = paste0("normalized expression ")
+                          ) +
+    geom_hline(yintercept = mean_1000_genes, linetype = "dashed", color = uithof_color[26], size = 0.4) + 
+    theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1, vjust = 1), # change orientation of x-axis labels
+          axis.text.y = element_text(size = 12),
+          axis.title.x = element_text(size = 14),
+          axis.title.y = element_text(size = 14)) 
+  p1
+  
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.png"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.pdf"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.ps"), plot = last_plot())
+  
+  rm(p1, temp )
+
+
+```
+
+## Heatmaps for genes of interest
+
+If we would put these correlations in one simple and comprehensible figure, we could use a correlation heatmap. Again, correlation coefficients used here are Spearman's.
+
+**Figure 4: correlation heatmap between expression of genes of interest**
+
+```{r heatmap_corr_genes, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(magrittr)
+
+temp <- expression_wide %>%
+  column_to_rownames("study_number") %>%
+  dplyr::select(symbol_ensembl_gene_list_qc) %>% 
+  drop_na() %>% # drop NA 
+  Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+
+temp.cor <- cor(temp, method = "spearman") 
+
+p1 <- pheatmap(data.matrix(temp.cor), 
+               scale = "none",
+               cluster_rows = TRUE, 
+               cluster_cols = TRUE,
+               legend = TRUE,
+               fontsize = 10)
+p1
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.gene_list.pdf"), plot = p1, height = 15, width = 15)
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.gene_list.png"), plot = p1, height = 15, width = 15)
+
+
+rm(temp, temp.cor, p1)
+
+```
+
+# Gene target list
+
+We are saving the final list of genes of interest
+
+```{r Save target genes}
+
+temp <- subset(expression_data_sel, select = c("gene_ensembl", "symbol"))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".target_list.qc.txt"),
+       sep = " ", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+```
+
+# Saving AERNA data
+
+We will create a list of samples that should be included based on CEA, and having the proper informed consent ('academic'). We will save the `SummarizedExperiment` as a RDS file for easy loading. The clinical data will also be saved as a separate `txt`-file.
+
+## Prepare meta data
+
+```{r}
+
+cat("  > meta data\n")
+temp_coldat <- data.frame(STUDY_NUMBER = names(bulkRNA_countsFilt[,10:631]), 
+                          SampleType = "plaque", RNAseqType = "3' RNAseq", 
+                          row.names = names(bulkRNA_countsFilt[,10:631]))
+cat("  > clinical data\n")
+# bulkRNA_meta_clin_COMMERCIAL <- subset(bulkRNA_meta_clin, select = c("study_number", "batch", "batchnr", "pool", basetable_vars))
+bulkRNA_meta_clin_ACADEMIC <- subset(bulkRNA_meta_clin, select = c("study_number", "batch", "batchnr", "pool", basetable_vars))
+
+# temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin_COMMERCIAL, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
+temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin_ACADEMIC, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
+
+rownames(temp_coldat_clin) <- temp_coldat_clin$STUDY_NUMBER
+dim(temp_coldat_clin)
+
+```
+
+## The raw data
+
+```{r}
+
+# temp <- subset(bulkRNA_meta_clin_COMMERCIAL, select = c("study_number", "batch", "batchnr", "pool"))
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.samplelist.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+# 
+# temp <- as.tibble(colData(AERNASE))
+# 
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.clinicaldata.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+
+temp <- subset(bulkRNA_meta_clin_ACADEMIC, select = c("study_number", "batch", "batchnr", "pool"))
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.622pts.samplelist.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+fwrite(bulkRNA_meta_clin_ACADEMIC,
+       file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.622pts.clinicaldata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+
+temp <- as.tibble(assay(AERNASE))
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.622pts.assay.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+temp <- as.tibble(rowRanges(AERNASE))
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.622pts.genedata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+
+```
+
+
+## Normalized counts
+
+Applied size correction before normalization.
+
+```{r}
+(AERNASEnorm <- SummarizedExperiment(assays = list(counts = normalized_counts),
+                                colData = temp_coldat_clin,
+                                rowRanges = bulkRNA_rowRanges,
+                                metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected. Size corrected normalization."))
+
+```
+
+```{r}
+temp <- as.tibble(subset(colData(AERNASEnorm), select = c("STUDY_NUMBER", "SampleType", "RNAseqType","batch", "batchnr", "pool")))
+
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.samplelist.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+# 
+# temp <- as.tibble(colData(AERNASE))
+# 
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.clinicaldata.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEnorm.CEA.622pts.samplelist.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+temp <- as.tibble(colData(AERNASEnorm))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEnorm.CEA.622pts.clinicaldata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+```
+
+```{r}
+temp <- as_tibble(assay(AERNASEnorm))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEnorm.CEA.622pts.assay.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+temp <- as_tibble(rowRanges(AERNASEnorm))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEnorm.CEA.622pts.genedata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+```
+
+
+### Melting normalized data
+```{r}
+library("mia")
+
+
+molten_AERNASEnorm <- mia::meltAssay(AERNASEnorm,
+                             assay.type = "counts",
+                             add_row_data = TRUE
+                             )
+head(molten_AERNASEnorm)
+
+```
+
+
+## Log transformed counts
+
+Log-transform the counts using `vst`.
+
+```{r}
+(AERNASEvst <- SummarizedExperiment(assays = list(counts = assay(AERNAvsd)),
+                                colData = temp_coldat_clin,
+                                rowRanges = bulkRNA_rowRanges,
+                                metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected. Size corrected normalization. log-transformed."))
+
+```
+
+```{r}
+temp <- as.tibble(subset(colData(AERNASEvst), select = c("STUDY_NUMBER", "SampleType", "RNAseqType", "batch", "batchnr", "pool")))
+
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.samplelist.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+# 
+# temp <- as.tibble(colData(AERNASE))
+# 
+# fwrite(temp,
+#        file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.clinicaldata.after_qc.IC_commercial.csv"),
+#        sep = ",", row.names = FALSE, col.names = TRUE,
+#        showProgress = TRUE)
+# rm(temp)
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEvst.CEA.622pts.samplelist.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+temp <- as.tibble(colData(AERNASEvst))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEvst.CEA.622pts.clinicaldata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+```
+
+
+```{r}
+temp <- as_tibble(assay(AERNASEvst))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEvst.CEA.622pts.assay.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+
+temp <- as_tibble(rowRanges(AERNASEvst))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".AERNASEvst.CEA.622pts.genedata.after_qc.IC_academic.csv"),
+       sep = ",", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+```
+
+### Melting log-transformed data
+
+```{r}
+molten_AERNASEvst <- mia::meltAssay(AERNASEvst,
+                             assay.type = "counts",
+                             add_row_data = TRUE
+                             )
+head(molten_AERNASEvst)
+
+```
+
+
+
+## Compare raw, normalized, and log-transformed data 
+
+Here we just do a sanity check and compare the expression for a favorite gene.
+```{r}
+
+ggpubr::gghistogram(as.tibble(t(subset(assay(AERNASE), AERNASE@rowRanges$symbol == "PCSK9"))),
+                    x = "ENSG00000169174", 
+                    xlab = "PCSK9 (ENSG00000169174) expression\nraw counts",
+                    color = "white", fill =  uithof_color[8],
+                    rug = F, add_density = F,
+                    add = c("median"),
+                    add.params = list(color = uithof_color[3]), 
+                    ggtheme = theme_pubclean())
+
+ggpubr::gghistogram(as.tibble(t(subset(assay(AERNASEnorm), AERNASEnorm@rowRanges$symbol == "PCSK9"))),
+                    x = "ENSG00000169174", 
+                    xlab = "PCSK9 (ENSG00000169174) expression\nnormalized, size corrected counts",
+                    color = "white", fill =  uithof_color[17],
+                    rug = F, add_density = F,
+                    add = c("median"),
+                    add.params = list(color = uithof_color[3]), 
+                    ggtheme = theme_pubclean())
+
+ggpubr::gghistogram(as.tibble(t(subset(assay(AERNASEvst), AERNASEvst@rowRanges$symbol == "PCSK9"))),
+                    x = "ENSG00000169174", 
+                    xlab = "PCSK9 (ENSG00000169174) expression\nlog-transformed, size corrected counts",
+                    color = "white", fill =  uithof_color[20],
+                    rug = F, add_density = F,
+                    add = c("median"),
+                    add.params = list(color = uithof_color[3]), 
+                    ggtheme = theme_pubclean())
+```
+
+
+## Saving the datasets
+```{r}
+
+# saveRDS(AERNASE, file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.608pts.SE.after_qc.IC_commercial.RDS"))
+saveRDS(AERNASE, file = paste0(OUT_loc, "/", Today, ".AERNA.CEA.622pts.SE.after_qc.IC_academic.RDS"))
+saveRDS(AERNASEnorm, file = paste0(OUT_loc, "/", Today, ".AERNASEnorm.CEA.622pts.SE.after_qc.IC_academic.RDS"))
+saveRDS(AERNASEvst, file = paste0(OUT_loc, "/", Today, ".AERNASEvst.CEA.622pts.SE.after_qc.IC_academic.RDS"))
+
+```
+
+
+# Session information
+
+--------------------------------------------------------------------------------
+
+    Version:      v1.1.1
+    Last update:  2023-06-14
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
+    Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
+
+    **MoSCoW To-Do List**
+    The things we Must, Should, Could, and Would have given the time we have.
+    _M_
+
+    _S_
+
+    _C_
+
+    _W_
+
+    **Changes log**
+    * v1.1.1 Fixed baseline table writing. Additional versions of saved data. Added example to 'melt' data using `mia`.
+    * v1.1.0 Update to bulk RNAseq data - deeper sequencing data is now available. Update to the study database.
+    * v1.0.1 Fixes to annotation. Fix to loading clinical dataset.
+    * v1.0.0 Inital version. Update to the count data, gene list. Filter samples based on artery operated (CEA) and informed consent. Added heatmap of correlation between target genes. 
+
+--------------------------------------------------------------------------------
+
+```{r eval = TRUE}
+sessionInfo()
+```
+
+# Saving environment
+
+```{r Saving}
+rm(molten_AERNASEnorm, molten_AERNASEvst)
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".bulkRNAseq.preparation.RData"))
+```
+
++-----------------------------------------------------------------------------------------------------------------------------------------+
+| <sup>© 1979-2023 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [vanderlaan.science](https://vanderlaan.science).</sup> |
++-----------------------------------------------------------------------------------------------------------------------------------------+
