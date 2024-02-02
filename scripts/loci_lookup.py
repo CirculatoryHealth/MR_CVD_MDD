@@ -128,7 +128,7 @@ def main():
         The `--log` option adds will indicate where the log will have to be written to, default: current working directory. 
         The `--verbose` option adds the option to print verbose output and write more information to the log, default: False.
         The `--version` option prints the version number and exits.
-        The
+        
         This is an example call:
 
         python3 loci_lookup.py --fileA /file1.txt.gz --fileB /file2.txt.gz --columnA Chr BP --columnB chromosome base_pair_location --output /joined.txt.gz --log /joined.log [optional: --version; --verbose: T/F; --help]
