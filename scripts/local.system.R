@@ -31,7 +31,7 @@ AESCRNA_loc = paste0(PLINK_loc, "/_AE_ORIGINALS/AESCRNA/prepped_data")
 AERNA_loc = paste0(PLINK_loc, "/_AE_ORIGINALS/AERNA")
 
 ### Project
-PROJECT_loc = paste0(STORAGE_loc, "/git/CirculatoryHealth/AE_TEMPLATE")
+PROJECT_loc = paste0(STORAGE_loc, "/git/CirculatoryHealth/MR_CVD_MDD")
 
 # use this if there is relevant information here.
 ifelse(!dir.exists(file.path(PROJECT_loc, "/targets")), 
@@ -40,8 +40,8 @@ ifelse(!dir.exists(file.path(PROJECT_loc, "/targets")),
 TARGET_loc = paste0(PROJECT_loc,"/targets")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
-TRAIT_OF_INTEREST = "PCSK9" # Phenotype
-PROJECTNAME = "PCSK9"
+TRAIT_OF_INTEREST = "MR_CVD_MDD" # Phenotype
+PROJECTNAME = "MR_CVD_MDD"
 
 cat("\nCreate a new analysis directories.\n")
 
