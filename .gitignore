@@ -74,8 +74,6 @@ _gsdata_/
 *.sas7bdat
 *.log
 *.csv
-*.xlsx
-*.xls
 *.pdf
 *.fff
 *.log
