@@ -17,6 +17,7 @@ install.packages.auto("optparse")
 install.packages.auto("tools")
 install.packages.auto("dplyr")
 install.packages.auto("tidyr")
+install.packages.auto("tibble")
 install.packages.auto("naniar")
 
 # To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
@@ -31,7 +32,11 @@ install.packages.auto("eeptools")
 
 install.packages.auto("haven")
 install.packages.auto("openxlsx")
+install.packages.auto("writexl")
 install.packages.auto("tableone")
+install.packages.auto("flextable")
+install.packages.auto("officer")
+
 
 install.packages.auto("BlandAltmanLeh")
 

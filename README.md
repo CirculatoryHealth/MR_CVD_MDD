@@ -1,90 +1,31 @@
-> ## AE_TEMPLATE
-> 
-> This is a "Lookup request" template. 
-> The naming of the repository should follow the convention we use in > Trello, _etc._, _e.g._ "AE_20190910_008_JHILLEBRANDS_SDEJAGER_TEMS_TIE2".
-> 
-> This template includes some (standard) codes/scripts for:
-> 
-> - baseline tables, sample selections
-> - SNP lookups, GWAS, or gene-based lookups
-> - bulk RNAseq analyses
-> - scRNAseq projections and lookups
-
 <!--  Provide a title.         -->
-## Mapping common variants to atherosclerotic plaques characteristics.
+## Genomics-based identification of shared mechanism in different tissues connecting major depression with atherosclerotic disease
 
 <!--  Provide details on the people involved and the project ID.         -->
 *Collaborators*
 
-[First name] [Initials] [Last name]
-[First name] [Initials] [Last name]
-[First name] [Initials] [Last name]
+Emma Pruin, Meike Bartels, Noortje van den Dungen, Joost Hoekstra, Dominique D.P. de Kleijn, Michal Mokry, Gerard Pasterkamp, Brenda Penninx, Wouter Peyrot, Hester M. den Ruijter, S.W. van der Laan, PhD*, Y. Milaneschi, PhD*.
+* these authors contributed equally
 
-*Athero-Express Team*
-
-Sander W. van der Laan, 
-Michal Mokry, 
-Ernest Diez Benavente, 
-Hester den Ruijter, 
-Dominique de Kleijn,
-Gert Jan de Borst, 
-Gerard Pasterkamp.
-
-**Project ID** [`AE_[YYYYMMDD]_[PROJECTNUMBER]_[LEADCOLLABORATOR]_[PROJECTNAME]`]
+**Project ID** [`MR_CVD_MDD`]
 
 
 ### Background
 <!--  Provide some background, study design, results, etc.         -->
-Collaboration to study common variants in relation to atherosclerotic plaques characteristics. 
+The high comorbidity of depression and atherosclerotic diseases may be linked to shared biological processes. The main process of atherosclerosis, the buildup of plaques in the vascular system, has not been investigated in connection with depression. Here, we examined whether the shared genetic basis of major depressive disorder (MDD) and atherosclerotic diseases was linked to altered gene expression in specific tissues, including the atherosclerotic plaque.
 
+### Methods
+Regions of high probability for shared causal genetic variants were identified using a combined approach of Mendelian Randomization and colocalization based on summary statistics of the newest available GWAS (N_MDD = 3,887,532). Shared causal regions were submitted to SMR-HEIDI, testing for effects of gene expression on MDD. Alongside eQTL datasets for whole blood (eQTLGen, N = 31,684), brain (BrainMeta, N = 2,865), and various other tissues (GTEx, N  > 134), we leverage eQTL from atherosclerotic plaques (Athero-Express, N = 656). 
 
-### Study design
+### Results
+We found eight genomic regions with high (> 0.8) posterior probability for containing shared causal variants for MDD and atherosclerotic disease. Significant causal estimates of gene expression on MDD were found in tissues such as whole blood, brain, and heart. No significant causal estimates were found for the effect of gene expression in the atherosclerotic plaque on depression. 
 
-We will test the hypothesis that common variants in a gene-of-interest are associated with plaque characteristics. We will use data from the **Athero-Express Biobank Study**.
+### Conclusion
+This study indicates that the shared genetic vulnerability with atherosclerosis acts on MDD partially through expression of various genes in tissues such as whole blood and the brain. Gene expression in severe atherosclerotic lesions did not appear to be involved in disease mechanisms.
 
-These are the questions we will address: 
-
-- Are any of the variants associated to plaque characteristics?
-- Gene expression correlated to characteristics of plaques?
-- Where target genes expressed, which cell types? 
-
-
-#### Athero-Express Biobank Study
-
-We have bulk RNAseq (n = 635 samples) and single-cell RNAseq data, genome-wide methylation (Illumina 450K) in n ± 600, as well as overlapping genetic data for ±2,100 individuals with extensive histological plaque characterisation. 
-
-
-#### Genetic analyses
-
-For the genetic analyses we will perform regression analyses adjusted for age, sex (where applicable) and principal components. So, we will apply the following model:
-
-We will perform regression analyses adjusted for age, sex (where applicable) and principal components. 
-
-model 1: `phenotype ~ age + sex + chip-used + PC1 + PC2 + year-of-surgery`
-
-We can also run sex-stratified analyses:
-
-model 1m: `phenotype ~ age + chip-used + PC1 + PC2 + year-of-surgery` males only
-model 1f: `phenotype ~ age + chip-used + PC1 + PC2 + year-of-surgery` females only
-
-phenotypes are:
-
-- `calcification`, coded `Calc.bin` no/minor vs. moderate/heavy staining
-- `collagen`, coded `Collagen.bin` no/minor vs. moderate/heavy staining
-- `fat10`, coded `Fat.bin_10` no/<10% fat vs. >10% fat
-- `fat40`, coded `Fat.bin_40` no/<40% fat vs. >40% fat
-- `intraplaque hemorrhage`, coded `IPH.bin` no vs. yes
-- `macrophages (CD68)`, coded `macmean0` mean of computer-assisted calculation CD68<sup>+</sup> region of interest
-- `smooth muscle cells (alpha-actin)`, coded `smcmean0` mean of computer-assisted calculation SMA<sup>+</sup> region of interest
-- `intraplaque vessel density (CD34)`, coded `vessel_density` manually counted CD34<sup>+</sup> cells per 3-4 hotspots
-- `mast cells`, coded `Mast_cells_plaque` manually counted mast cell tryptase<sup>+</sup> cells (https://academic.oup.com/eurheartj/article/34/48/3699/484981) [Note: low sample size]
-- `neutrophils (CD66b)`, coded `neutrophils` manually counted CD66b<sup>+</sup> cells (https://pubmed.ncbi.nlm.nih.gov/20595650/) [Note: low sample size]
-- `plaque vulnerability index`, scaled from 0 to 4, where 0 is most stable, and 4 is least stable plaque phenotype.
-
-Continuous variables were inverse-rank normal transformated, indicated by `_rankNorm`. 
 
 **Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
-![Genotyped individuals in the Athero-Express Biobank Study](PLOTS/20230614.overlap.AEDB_AEGS123.UpSetR.png)
+![Genotyped individuals in the Athero-Express Biobank Study](PLOTS/20250328.overlap.AEDB_AEGS123.UpSetR.png)
 
 
 #### Whole-plaque RNAseq
@@ -92,9 +33,7 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
 **Figure 2: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
-![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](PLOTS/20230614.TargetExpression_vs_1000genes.png)
-
-We assessed the correlation with plaque characteristics (mentioned above) and secondary major adverse cardiovascular events (MACE [major]) at 30 days and 3 years after CEA. 
+![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](PLOTS/20250328.TargetExpression_vs_1000genes.png)
 
 
 #### Single cell RNAseq
@@ -102,16 +41,16 @@ We assessed the correlation with plaque characteristics (mentioned above) and se
 We projected target genes to the single-cell RNAseq data derived from 37 carotid plaque samples. We identified cell communities (Figure 2), mapped and projected target gene expression to the cell communities (Figure 3). 
 
 **Figure 3: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
-![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](PLOTS/20230614.UMAP.png)
+![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](PLOTS/20250328.UMAP.png)
 
 
 **Figure 4: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
-![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](PLOTS/20230614.DotPlot.Targets.png)
+![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](PLOTS/20250328.DotPlot.Targets.png)
 
 
 ### Where do I start?
 
-You can load this project in RStudio by opening the file called 'AE_TEMPLATE.Rproj'.
+You can load this project in RStudio by opening the file called 'MR_CVD_MDD.Rproj'.
 
 ### Project structure
 
@@ -120,7 +59,7 @@ You can load this project in RStudio by opening the file called 'AE_TEMPLATE.Rpr
 File                                    | Description                          | Usage         
 --------------------------------------- | ------------------------------------ | --------------
 README.md                               | Description of project               | Human editable
-AE_TEMPLATE.Rproj                       | Project file                         | Loads project
+MR_CVD_MDD.Rproj                        | Project file                         | Loads project
 LICENSE                                 | User permissions                     | Read only
 .worcs                                  | WORCS metadata YAML                  | Read only
 renv.lock                               | Reproducible R environment           | Read only
@@ -128,19 +67,18 @@ images                                  | image directory for project          |
 BASELINE                                | Baseline characteristics directory   | Human editable
 OUTPUT                                  | Output directory                     | Human editable
 PLOTS                                   | Some results                         | Human editable
-SNP                                     | SNP analysis directory               | Human editable
 scripts                                 | Scripts directory                    | Human editable
 targets                                 | Directory containing list of targets | Human editable
-manuscript                              | Source code for paper                | Human editable
 packages.bib                            | BibTex references for packages used  | Human editable
 references.bib                          | BibTex references                    | Human editable
 preregistration.rmd                     | Preregistered hypotheses             | Human editable
-1. AEDB.CEA.baseline.Rmd                | Preparing data, baseline table       | Human editable
-2. SNP_analyses.Rmd                     | Preparing SNP analyses               | Human editable
-3.1 bulkRNAseq.preparation.Rmd          | Preparing bulk RNAseq analyses       | Human editable
-3.2 bulkRNAseq.main_analysis.Rmd        | Main RNAseq analyses                 | Human editable
-3.3 bulkRNAseq.additional_figures.Rmd   | Additional RNAseq figures            | Human editable
-4. scRNAseq.Rmd                         | Single-cell RNAseq analyses          | Human editable
+1_AEDB.CEA.baseline.Rmd                 | Preparing data, baseline table       | Human editable
+3_1_bulkRNAseq.preparation.Rmd          | Preparing bulk RNAseq analyses       | Human editable
+3_2_bulkRNAseq.exploration.Rmd          | Exploration RNAseq.                  | Human editable
+4_scRNAseq.Rmd                          | Single-cell RNAseq analyses          | Human editable
+6_Parsing_AE_molQTL.ipynb               | Parsing molQTL results               | Human editable
+7_Parsing_GWASSumStats_MDD_vs_CAD.ipynb | Parsing GWAS SumStats MDD vs CAD     | Human editable
+8_Extract_8_regions.ipynb               | Extract data for regions of interest | Human editable
 
 <!--  You can consider adding the following to this file:                    -->
 <!--  * A citation reference for your project                                -->
@@ -150,12 +88,9 @@ preregistration.rmd                     | Preregistered hypotheses             |
 
 ### Reproducibility
 
-This project uses the Workflow for Open Reproducible Code in Science (WORCS) to
-ensure transparency and reproducibility. The workflow is designed to meet the
-principles of Open Science throughout a research project. 
+This project uses the Workflow for Open Reproducible Code in Science (WORCS) to ensure transparency and reproducibility. The workflow is designed to meet the principles of Open Science throughout a research project. 
 
-To learn how WORCS helps researchers meet the TOP-guidelines and FAIR principles,
-read the preprint at https://osf.io/zcvbs/
+To learn how WORCS helps researchers meet the TOP-guidelines and FAIR principles, read the preprint at https://osf.io/zcvbs/
 
 #### WORCS: Advice for authors
 
@@ -169,20 +104,24 @@ Please refer to the vignette on [reproducing a WORCS project]() for step by step
 <!-- reproducing a WORCS project, please provide your own advice for         -->
 <!-- readers here.                                                           -->
 
-### Acknowledgements
+# Acknowledgements
+Dr. Sander W. van der Laan is funded through EU H2020 TO_AITION (grant number: 848146), EU HORIZON NextGen (grant number: 101136962), EU HORIZON MIRACLE (grant number: 101115381), and Health~Holland PPP Allowance ‘Getting the Perfect Image’.
 
-Dr. Sander W. van der Laan is funded through grants from the Netherlands CardioVascular Research Initiative of the Netherlands Heart Foundation (CVON 2011/B019 and CVON 2017-20: Generating the best evidence-based pharmaceutical targets for atherosclerosis [GENIUS I&II]). We are thankful for the support of the ERA-CVD program ‘druggable-MI-targets’ (grant number: 01KL1802), the EU H2020 TO_AITION (grant number: 848146), and the Leducq Fondation ‘PlaqOmics’.
+We are thankful for the support of the Leducq Fondation ‘PlaqOmics’ and ‘AtheroGen’, and the Chan Zuckerberg Initiative ‘MetaPlaq’. The research for this contribution was made possible by the AI for Health working group of the [EWUU alliance](https://aiforhealth.ewuu.nl/). The collaborative project ‘Getting the Perfect Image’ was co-financed through use of PPP Allowance awarded by Health~Holland, Top Sector Life Sciences & Health, to stimulate public-private partnerships.
 
-Plaque samples are derived from carotid endarterectomies as part of the [Athero-Express Biobank Study](https://doi.org/10.1007/s10564-004-2304-6) which is an ongoing study in the UMC Utrecht.
+Plaque samples are derived from endarterectomies as part of the [Athero-Express Biobank Study](https://doi.org/10.1007/s10564-004-2304-6) which is an ongoing study in the UMC Utrecht. We would like to thank all the (former) employees involved in the Athero-Express Biobank Study of the Departments of Surgery of the St. Antonius Hospital Nieuwegein and University Medical Center Utrecht for their continuing work. Lastly, we would like to thank all participants of the Athero-Express Biobank Study; without you these kinds of studies would not be possible.
 
 The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
 
-<a href='https://www.era-cvd.eu'><img src='images/ERA_CVD_Logo_CMYK.png' align="center" height="75" /></a> <a href='https://www.plaqomics.com'><img src='images/leducq-logo-large.png' align="center" height="75" /></a> <a href='https://www.fondationleducq.org'><img src='images/leducq-logo-small.png' align="center" height="75" /></a> <a href='https://osf.io/zcvbs/'><img src='images/worcs_icon.png' align="center" height="75" /></a> <a href='https://doi.org/10.1007/s10564-004-2304-6'><img src='images/AE_Genomics_2010.png' align="center" height="100" /></a>
+## Disclosures
+Dr. Sander W. van der Laan has received Roche funding for unrelated work.
+
+<a href='https://uefconnect.uef.fi/en/group/miracle/'><img src='images/UEF_Miracle_Logo-07.png' align="center" height="75" /></a> <a href='https://www.to-aition.eu'><img src='images/to_aition.png' align="center" height="75" /></a> <a href='https://www.health-holland.com'><img src='images/logo_NL_HealthHollland_Wit-Oranje_RGB.png' align="center" height="35" /></a> <a href='https://www.nextgentools.eu'><img src='images/NextGen_1_Red.png' align="center" height="35" /></a> <a href='https://www.era-cvd.eu'><img src='images/ERA_CVD_Logo_CMYK.png' align="center" height="75" /></a> <a href=''><img src='images/leducq-logo-large.png' align="center" height="75" /></a> <a href='https://www.fondationleducq.org'><img src='images/leducq-logo-small.png' align="center" height="75" /></a> <a href='https://osf.io/zcvbs/'><img src='images/worcs_icon.png' align="center" height="75" /></a> <a href='https://doi.org/10.1007/s10564-004-2304-6'><img src='images/AE_Genomics_2010.png' align="center" height="100" /></a>
 
 #### Changes log
     
-    _Version:_      v1.3.1</br>
-    _Last update:_  2023-06-14</br>
+    _Version:_      v1.4.0</br>
+    _Last update:_  2025-03-28</br>
     _Written by:_   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     
     **MoSCoW To-Do List**
@@ -196,6 +135,7 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
     _W_
 
     **Changes log**
+    * v1.4.0 Total re-organization. Updated to AEDB. Updated to RNAseq (deeper sequencing). Added baseline table for samples in eQTL analyses (b37 version).
     * v1.3.1 Fixed baseline table writing. Added additional saving options (raw, normalized, and log-transformed data) for the bulk RNAseq.
     * v1.3.0 Some script changes. Update to AEDB. Update to RNAseq (deeper sequencing). 
     * v1.2.2 Some organisational updates. 
@@ -213,7 +153,7 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
 --------------
 
 #### Creative Commons BY-NC-ND 4.0
-##### Copyright (c) 1979-2023 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
+##### Copyright (c) 1979-2025 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
 
 <sup>This is a human-readable summary of (and not a substitute for) the [license](LICENSE). </sup>
 </br>

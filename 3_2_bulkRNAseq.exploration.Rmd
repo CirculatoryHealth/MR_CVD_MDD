@@ -132,8 +132,10 @@ Now you need to choose which of the datasets you will use for the downstream ana
 
 ## Log-transformed normalized data
 ```{r}
-AERNAScomboSE <- readRDS(file = paste0(OUT_loc, "/",Today,".AERNAScomboSEvst.CEA.1093pts.SE.after_qc.IC_academic.RDS"))
+# AERNAScomboSE <- readRDS(file = paste0(OUT_loc, "/",Today,".AERNAScomboSEvst.CEA.1093pts.SE.after_qc.IC_academic.RDS"))
 # AERNAScomboSE <- readRDS(file = paste0(OUT_loc, "/20240109.AERNAScomboSEvst.CEA.1093pts.SE.after_qc.IC_academic.RDS"))
+
+AERNAScomboSE <- readRDS(file = paste0(OUT_loc, "/",Today,".AERNAS1SEvst.CEA.624pts.SE.after_qc.IC_academic.RDS"))
 
 ```
 
@@ -370,58 +372,9 @@ for(GENE in gene_list_qc){
   ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
   ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
   ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.ps"), plot = last_plot())
+
   
-  compare_means(expression_value ~ Gender, data = temp)
-  p2 <- ggpubr::ggboxplot(temp,
-                          x = "Gender",
-                          y = "expression_value",
-                          color = "StudyName",
-                          palette = "npg",
-                          add = "jitter",
-                          ylab = paste0("normalized expression ", GENE,"" ),
-                          repel = TRUE
-                          ) #+ stat_compare_means()
-  print(p2)
-  cat(paste0("Saving image for ", GENE,".\n"))
-  
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_Gender_by_AERNAStudy.png"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_Gender_by_AERNAStudy.pdf"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_Gender_by_AERNAStudy.ps"), plot = last_plot())
-  
-  compare_means(expression_value ~ StudyName, data = temp)
-  p3 <- ggpubr::ggboxplot(temp,
-                          x = "StudyName",
-                          y = "expression_value",
-                          color = "StudyName",
-                          palette = "npg",
-                          add = "jitter",
-                          ylab = paste0("normalized expression ", GENE,"" ),
-                          repel = TRUE
-                          ) + stat_compare_means()
-  print(p3)
-  cat(paste0("Saving image for ", GENE,".\n"))
-  
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy.png"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy.pdf"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy.ps"), plot = last_plot())
-  
-  compare_means(expression_value ~ StudyName, data = temp)
-  p4 <- ggpubr::ggboxplot(temp,
-                          x = "StudyName",
-                          y = "expression_value",
-                          color = "Gender",
-                          palette = "npg",
-                          add = "jitter",
-                          ylab = paste0("normalized expression ", GENE,"" ),
-                          repel = TRUE
-                          ) #+ stat_compare_means()
-  print(p4)
-  cat(paste0("Saving image for ", GENE,".\n"))
-  
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy_by_Gender.png"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy_by_Gender.pdf"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_AERNAStudy_by_Gender.ps"), plot = last_plot())
-  rm(temp, p1, p2, p3, p4 )
+  rm(temp, p1)
 }
 
 ```
@@ -546,28 +499,8 @@ mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
   ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.png"), plot = last_plot())
   ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.pdf"), plot = last_plot())
   ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.ps"), plot = last_plot())
-  
-  p2 <- ggpubr::ggboxplot(expression_long2,
-                          x = "gene",
-                          y = "expression_value",
-                          color = "StudyName",
-                          palette = "npg",
-                          add = "jitter",
-                          add.params = list(size = 3, jitter = 0.3), 
-                          ylab = paste0("normalized expression ")
-                          ) +
-    geom_hline(yintercept = mean_1000_genes, linetype = "dashed", color = uithof_color[26], size = 0.4) + 
-    theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1, vjust = 1), # change orientation of x-axis labels
-          axis.text.y = element_text(size = 12),
-          axis.title.x = element_text(size = 14),
-          axis.title.y = element_text(size = 14)) 
-  p2
-  
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes_by_AERNAStudy.png"), plot = last_plot())
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes_by_AERNAStudy.pdf"), plot = last_plot())
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes_by_AERNAStudy.ps"), plot = last_plot())
-  
-  rm(p1, p2, temp )
+
+  rm(p1, temp )
 
 
 ```
@@ -690,7 +623,7 @@ Sample list and clinical data.
 temp <- as.tibble(subset(colData(AERNAScomboSE_target), select = c("study_number", AERNAS_meta_data)))
 
 fwrite(temp,
-       file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.1093pts.samplelist.after_qc.IC_academic.csv"),
+       file = paste0(OUT_loc, "/", Today, ".AERNAS1SE_target.CEA.624pts.samplelist.after_qc.IC_academic.csv"),
        sep = ",", row.names = FALSE, col.names = TRUE,
        showProgress = TRUE)
 rm(temp)
@@ -698,7 +631,7 @@ rm(temp)
 temp <- as.tibble(subset(colData(AERNAScomboSE_target), select = c("study_number", basetable_vars)))
 
 fwrite(temp,
-       file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.1093pts.clinicaldata.after_qc.IC_academic.csv"),
+       file = paste0(OUT_loc, "/", Today, ".AERNAS1SE_target.CEA.624pts.clinicaldata.after_qc.IC_academic.csv"),
        sep = ",", row.names = FALSE, col.names = TRUE,
        showProgress = TRUE)
 rm(temp)
@@ -709,7 +642,7 @@ Assay data and gene information.
 temp <- as_tibble(assay(AERNAScomboSE_target))
 
 fwrite(temp,
-       file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.1093pts.assay.after_qc.IC_academic.csv"),
+       file = paste0(OUT_loc, "/", Today, ".AERNAS1SE_target.CEA.624pts.assay.after_qc.IC_academic.csv"),
        sep = ",", row.names = FALSE, col.names = TRUE,
        showProgress = TRUE)
 rm(temp)
@@ -717,7 +650,7 @@ rm(temp)
 temp <- as_tibble(rowRanges(AERNAScomboSE_target))
 
 fwrite(temp,
-       file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.1093pts.genedata.after_qc.IC_academic.csv"),
+       file = paste0(OUT_loc, "/", Today, ".AERNAS1SE_target.CEA.624pts.genedata.after_qc.IC_academic.csv"),
        sep = ",", row.names = FALSE, col.names = TRUE,
        showProgress = TRUE)
 rm(temp)
@@ -727,7 +660,7 @@ The subset as `SummarizedExperiment()` dataset in `RDS`-format.
 ```{r}
 
 # saveRDS(AERNASE, file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.608pts.SE.after_qc.IC_commercial.RDS"))
-saveRDS(AERNAScomboSE_target, file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE_target.CEA.1093pts.SE.after_qc.IC_academic.RDS"))
+saveRDS(AERNAScomboSE_target, file = paste0(OUT_loc, "/", Today, ".AERNAS1SE_target.CEA.624pts.SE.after_qc.IC_academic.RDS"))
 
 ```
 
@@ -737,8 +670,8 @@ saveRDS(AERNAScomboSE_target, file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE
 
 --------------------------------------------------------------------------------
 
-    Version:      v1.0.0
-    Last update:  2024-01-09
+    Version:      v1.0.1
+    Last update:  2025-03-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -754,6 +687,7 @@ saveRDS(AERNAScomboSE_target, file = paste0(OUT_loc, "/", Today, ".AERNAScomboSE
     _W_
 
     **Changes log**
+    * v1.0.1 Updated the script to include the latest data and to explore the subset of data.
     * v1.0.0 Inital version. Re-arranged to explore the subset of data. 
 
 --------------------------------------------------------------------------------
@@ -769,5 +703,5 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".bulkRNAseq.exploratio
 ```
 
 +-----------------------------------------------------------------------------------------------------------------------------------------+
-| <sup>© 1979-2024 Sander W. van der Laan | s.w.vanderlaan[at]gmail[dot]com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
+| <sup>© 1979-2025 Sander W. van der Laan | s.w.vanderlaan[at]gmail[dot]com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
 +-----------------------------------------------------------------------------------------------------------------------------------------+

@@ -1,6 +1,6 @@
 ---
 title: "Genetic analyses"
-subtitle: Accompanying 'icrpa_2024_neuroplaq'
+subtitle: Accompanying 'MR_CVD_MDD'
 author: '[Sander W. van der Laan, PhD](https://vanderlaanand.science) | s.w.vanderlaan@gmail.com'
 date: '`r Sys.Date()`'
 output:
@@ -43,7 +43,6 @@ source("scripts/functions.R")
 
 ```{r loading_packages, message=FALSE, warning=FALSE}
 source("scripts/pack01.packages.R")
-
 ```
 
 ```{r Setting: Colors}
@@ -52,7 +51,6 @@ Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
 Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
 
 source("scripts/colors.R")
-
 ```
 
 ```{r setup_notebook, include=FALSE}
@@ -75,7 +73,6 @@ ggplot2::theme_set(ggplot2::theme_minimal())
 # pander::panderOptions("table.split.table", Inf)
 library("worcs")
 library("rmarkdown")
-
 ```
 
 
@@ -209,8 +206,6 @@ AEGS123.sampleList.keytable <- fread(paste0(AEGSQC_loc, "/QC/SELECTIONS/20200419
 
 dim(AEGS123.sampleList.keytable)
 # AEGS123.sampleList.keytable[1:10, 1:10]
-
-
 ```
 
 
@@ -469,574 +464,710 @@ write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.CEA.Base
 
 ```
 
-# SampleLists
+# AE eQTL Study (b37, n=626) baseline characteristics
 
-## Autosomal data.
+Here we will load the list of samples that have overlapping genotype and transcriptomic data, and we will create a baseline table for these samples. These samples are derived from the molQTL analyses done using [QTLToolKit]().
 
-We are ready to make a sampleList for use with the imputed data.
+```{r}
+library(openxlsx)
 
-```{r Prep SampleSelect}
+# update list
+SampleList_eQTL_b37 <- read.xlsx(paste0(TARGET_loc, "/SampleList_eQTL_b37.xlsx"), sheet = "SampleList_eQTL_b37")
+
+DT::datatable(SampleList_eQTL_b37)
+```
+
+Let's match this list with the AEGS dataset, as this will have the genotype SampleID. 
+
+```{r}
+# Matching the SampleList_eQTL_b37 with the AEGS dataset
+# ID_1 = SampleID
+
+# AEGS_eQTL <- merge(AEGSselect, SampleList_eQTL_b37, 
+#                    by.x = "ID_1", 
+#                    by.y = "SampleID", 
+#                    sort = FALSE,
+#                    all.y = TRUE)
+
+AEGS_eQTL <- merge(AEGS, SampleList_eQTL_b37, 
+                   by.x = "ID_1", 
+                   by.y = "SampleID", 
+                   sort = FALSE,
+                   all.y = TRUE)
+```
+
+
+Let's prepare the `tableOne` object and output it to Excel.
+
+```{r}
+# Load required libraries
+library(tableone)
+library(writexl)
+library(flextable)
+library(officer)
+library(dplyr)
+library(tibble)
+
+# Create Table 1 and store as a data frame
+AEGS_eQTL.tableOne = print(CreateTableOne(vars = c(basetable_vars),
+                                     factorVars = basetable_bin,
+                                     # strata = "StudyName",
+                                     data = AEGS_eQTL, 
+                                     includeNA = TRUE), 
+                      nonnormal = c(), 
+                      quote = FALSE, 
+                      showAllLevels = TRUE,
+                      format = "p", 
+                      contDigits = 3) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(var = "Variable")  # Convert row names to column
+```
+
+```{r}
+# Extract clean variable names from CreateTableOne metadata
+var_names <- names(CreateTableOne(
+                  vars = c(basetable_vars),
+                  factorVars = basetable_bin,
+                  # strata = "StudyName",
+                  data = AEGS_eQTL, 
+                  includeNA = TRUE)$MetaData$varNames)
+
+# Replace the "Variable" column with actual variable names
+AEGS_eQTL.tableOne$Variable <- var_names
+
+# View output
+# head(AEGS_eQTL.tableOne)
+```
+
+## Excel-file
+
+```{r}
+# Write basetable
 require(openxlsx)
 
-temp <- subset(AEGS,
-               GWAS == "genotyped",
-               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples!
-                          "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC",
-                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA",
-                          "PC1", "PC2", "PC3", "PC4", "PC5",
-                          "PC6", "PC7", "PC8", "PC9", "PC10",
-                          "Sex", "Age", "ORyear", 
-                          "Calc.bin", "Collagen.bin", 
-                          "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
-                          "Plaque_Vulnerability_Index",
-                          "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest
-dim(temp)
-
-# Fix things
-attach(temp)
-
-temp[,"Calcification"] <- NA
-temp$Calcification[Calc.bin == "no/minor"] <- "control"
-temp$Calcification[Calc.bin == "moderate/heavy"] <- "case"
-
-temp[,"Collagen"] <- NA
-temp$Collagen[Collagen.bin == "no/minor"] <- "control"
-temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case"
-
-temp[,"Fat10"] <- NA
-temp$Fat10[Fat.bin_10 == "<10%"] <- "control"
-temp$Fat10[Fat.bin_10 == ">10%"] <- "case"
-
-temp[,"Fat40"] <- NA
-temp$Fat40[Fat.bin_40 == "<40%"] <- "control"
-temp$Fat40[Fat.bin_40 == ">40%"] <- "case"
-
-temp[,"IPH"] <- NA
-temp$IPH[IPH.bin == "no"] <- "control"
-temp$IPH[IPH.bin == "yes"] <- "case"
-
-temp[,"PVI"] <- NA
-temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0"
-temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1"
-temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2"
-temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3"
-temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4"
-temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5"
-
-temp$Plaque_Vulnerability_Index <- temp$PVI
-temp$PVI <- NULL
-
-detach(temp)
-
-# Making selection variable
-attach(temp)
-temp[,"SELECTION"] <- "not_selected"
-temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR")] <- "selected"
-detach(temp)
-table(temp$SELECTION, temp$QC2018_FILTER)
-table(temp$SELECTION, temp$STUDY_TYPE)
-table(temp$SELECTION, temp$PCA)
-table(temp$Plaque_Vulnerability_Index)
-
+write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS_eQTL.BaselineTable.xlsx"), 
+           format(as.data.frame(AEGS_eQTL.tableOne), digits = 5, scientific = FALSE),
+           rowNames = TRUE, 
+           colNames = TRUE, 
+           sheetName = "AEGS_eQTL", overwrite = TRUE)
 ```
 
 
-```{r Save SampleSelect}
-# Check https://www.well.ox.ac.uk/~gav/snptest/#multinomial_tests for details on multiple categories testing in SNPTEST
+## Word-document
 
-AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
+```{r}
+# Convert to a properly formatted data frame
+table_one_df <- print(AEGS_eQTL.tableOne, 
+                      quote = FALSE, showAllLevels = TRUE,
+                      format = "p", contDigits = 3) %>%
+                as.data.frame()
 
-AEGS123_sample.list$missing <- 0
+# Clean up variable names
+table_one_df <- rownames_to_column(table_one_df, var = "Variable")  # Convert row names to column
+table_one_df$Variable <- var_names  # Replace technical row names with actual variable names
 
-sample_file_aegs <- dplyr::select(AEGS123_sample.list,
-                                  ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be
-                                  UPID, STUDY_NUMBER, 
-                                  QC2018_FINAL, QC2018_FILTER, SELECTION,
-                                  AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA,
-                                  PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10,
-                                  Sex, Age, ORyear, 
-                                  Calcification, Collagen, 
-                                  Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
-                                  Plaque_Vulnerability_Index,
-                                  PCSK9_plasma, PCSK9_plasma_rankNorm)  %>%
-  mutate_if(is.numeric, as.character) %>%
-  mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
-  add_row(.before = 1, 
-          ID_1 = "0", ID_2 = "0", missing = "0", 
-          UPID = "D", STUDY_NUMBER = "C",
-          QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D",
-          AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D",
-          PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C",
-          Sex = "D", Age = "C", ORyear = "C", 
-          Calcification = "B", Collagen = "B", 
-          Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
-          Plaque_Vulnerability_Index = "D",
-          PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
-  print()
-dim(sample_file_aegs)
+# Save to Excel
+write_xlsx(table_one_df, path = "TableOne.xlsx")
 
-fwrite(sample_file_aegs,
-       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.sample"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = TRUE,
-       showProgress = TRUE, verbose = TRUE)
+# Format for Word output with Calibri font and size 9
+ft <- flextable(table_one_df) %>%
+  theme_vanilla() %>%
+  autofit() %>%
+  set_table_properties(layout = "autofit") %>%
+  font(fontname = "Calibri", part = "all") %>%
+  fontsize(size = 9, part = "all")
 
-require(DT)
-DT::datatable(sample_file_aegs, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE)
+# Save to Word
+doc <- read_docx()
+doc <- body_add_flextable(doc, ft)
+print(doc, target = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS_eQTL.BaselineTable.docx"))
 
-rm(temp, temp2, temp3)
+# Print message
+message("Table exported successfully to TableOne.xlsx and TableOne.docx with Calibri font and size 9.")
+rm(table_one_df, ft, doc)
 ```
 
 
-### Females only
+## Save AEGS_eQTL
 
-This is the selection for females only.
+Save the `AEGS_eQTL` dataset for further use downstream.
 
-```{r TEMP SampleSelect FEMALES}
-require(openxlsx)
-
-temp <- subset(AEGS,
-               GWAS == "genotyped",
-               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples!
-                          "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC",
-                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA",
-                          "PC1", "PC2", "PC3", "PC4", "PC5",
-                          "PC6", "PC7", "PC8", "PC9", "PC10",
-                          "Sex", "Age", "ORyear", 
-                          "BMI",
-                          "Calc.bin", "Collagen.bin", 
-                          "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", 
-                          "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
-                          "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest
-dim(temp)
-
-# Fix things
-attach(temp)
-
-temp[,"Calcification"] <- NA
-temp$Calcification[Calc.bin == "no/minor"] <- "control"
-temp$Calcification[Calc.bin == "moderate/heavy"] <- "case"
-
-temp[,"Collagen"] <- NA
-temp$Collagen[Collagen.bin == "no/minor"] <- "control"
-temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case"
-
-temp[,"Fat10"] <- NA
-temp$Fat10[Fat.bin_10 == "<10%"] <- "control"
-temp$Fat10[Fat.bin_10 == ">10%"] <- "case"
-
-temp[,"Fat40"] <- NA
-temp$Fat40[Fat.bin_40 == "<40%"] <- "control"
-temp$Fat40[Fat.bin_40 == ">40%"] <- "case"
-
-temp[,"IPH"] <- NA
-temp$IPH[IPH.bin == "no"] <- "control"
-temp$IPH[IPH.bin == "yes"] <- "case"
-
-temp[,"PVI"] <- NA
-temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0"
-temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1"
-temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2"
-temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3"
-temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4"
-temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5"
-
-temp$Plaque_Vulnerability_Index <- temp$PVI
-temp$PVI <- NULL
-
-detach(temp)
-
-# Making selection variable
-attach(temp)
-temp[,"SELECTION"] <- "not_selected"
-temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR") & Sex=="F"] <- "selected"
-detach(temp)
-table(temp$SELECTION, temp$QC2018_FILTER)
-table(temp$SELECTION, temp$STUDY_TYPE)
-table(temp$SELECTION, temp$PCA)
+```{r}
+# Save the AEGS_eQTL dataset
+saveRDS(AEGS_eQTL, file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEGS_eQTL.RDS"))
 ```
 
 
-```{r Save SampleSelect FEMALES}
-AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
 
-AEGS123_sample.list$missing <- 0
+<!-- # SampleLists -->
 
-sample_file_aegsF <- dplyr::select(AEGS123_sample.list,
-                                  ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be
-                                  UPID, STUDY_NUMBER, 
-                                  QC2018_FINAL, QC2018_FILTER, SELECTION,
-                                  AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA,
-                                  PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10,
-                                  Sex, Age, ORyear, 
-                                  Calcification, Collagen, 
-                                  Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
-                                  Plaque_Vulnerability_Index,
-                                  PCSK9_plasma, PCSK9_plasma_rankNorm)  %>%
-  mutate_if(is.numeric, as.character) %>%
-  mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
-  add_row(.before = 1, 
-          ID_1 = "0", ID_2 = "0", missing = "0", 
-          UPID = "D", STUDY_NUMBER = "C",
-          QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D",
-          AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D",
-          PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C",
-          Sex = "D", Age = "C", ORyear = "C", 
-          Calcification = "B", Collagen = "B", 
-          Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
-          Plaque_Vulnerability_Index = "D",
-          PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
-  print()
-dim(sample_file_aegsF)
+<!-- ## Autosomal data. -->
 
-fwrite(sample_file_aegsF,
-       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.females.sample"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = TRUE,
-       showProgress = TRUE, verbose = TRUE)
+<!-- We are ready to make a sampleList for use with the imputed data. -->
 
-require(DT)
-DT::datatable(sample_file_aegsF, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE)
+<!-- ```{r Prep SampleSelect} -->
+<!-- require(openxlsx) -->
 
-rm(temp)
-```
+<!-- temp <- subset(AEGS, -->
+<!--                GWAS == "genotyped", -->
+<!--                select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples! -->
+<!--                           "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC", -->
+<!--                           "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA", -->
+<!--                           "PC1", "PC2", "PC3", "PC4", "PC5", -->
+<!--                           "PC6", "PC7", "PC8", "PC9", "PC10", -->
+<!--                           "Sex", "Age", "ORyear",  -->
+<!--                           "Calc.bin", "Collagen.bin",  -->
+<!--                           "Fat.bin_10", "Fat.bin_40", "IPH.bin",  -->
+<!--                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", -->
+<!--                           "Plaque_Vulnerability_Index", -->
+<!--                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest -->
+<!-- dim(temp) -->
 
-### Males only
+<!-- # Fix things -->
+<!-- attach(temp) -->
 
-This is the selection for males only.
+<!-- temp[,"Calcification"] <- NA -->
+<!-- temp$Calcification[Calc.bin == "no/minor"] <- "control" -->
+<!-- temp$Calcification[Calc.bin == "moderate/heavy"] <- "case" -->
 
-```{r TEMP SampleSelect MALES}
-require(openxlsx)
+<!-- temp[,"Collagen"] <- NA -->
+<!-- temp$Collagen[Collagen.bin == "no/minor"] <- "control" -->
+<!-- temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case" -->
 
-temp <- subset(AEGS,
-               GWAS == "genotyped",
-               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples!
-                          "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC",
-                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA",
-                          "PC1", "PC2", "PC3", "PC4", "PC5",
-                          "PC6", "PC7", "PC8", "PC9", "PC10",
-                          "Sex", "Age", "ORyear", 
-                          "BMI",
-                          "Calc.bin", "Collagen.bin", 
-                          "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", 
-                          "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
-                          "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest
-dim(temp)
+<!-- temp[,"Fat10"] <- NA -->
+<!-- temp$Fat10[Fat.bin_10 == "<10%"] <- "control" -->
+<!-- temp$Fat10[Fat.bin_10 == ">10%"] <- "case" -->
 
-# Fix things
-attach(temp)
+<!-- temp[,"Fat40"] <- NA -->
+<!-- temp$Fat40[Fat.bin_40 == "<40%"] <- "control" -->
+<!-- temp$Fat40[Fat.bin_40 == ">40%"] <- "case" -->
 
-temp[,"Calcification"] <- NA
-temp$Calcification[Calc.bin == "no/minor"] <- "control"
-temp$Calcification[Calc.bin == "moderate/heavy"] <- "case"
+<!-- temp[,"IPH"] <- NA -->
+<!-- temp$IPH[IPH.bin == "no"] <- "control" -->
+<!-- temp$IPH[IPH.bin == "yes"] <- "case" -->
 
-temp[,"Collagen"] <- NA
-temp$Collagen[Collagen.bin == "no/minor"] <- "control"
-temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case"
+<!-- temp[,"PVI"] <- NA -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5" -->
 
-temp[,"Fat10"] <- NA
-temp$Fat10[Fat.bin_10 == "<10%"] <- "control"
-temp$Fat10[Fat.bin_10 == ">10%"] <- "case"
+<!-- temp$Plaque_Vulnerability_Index <- temp$PVI -->
+<!-- temp$PVI <- NULL -->
 
-temp[,"Fat40"] <- NA
-temp$Fat40[Fat.bin_40 == "<40%"] <- "control"
-temp$Fat40[Fat.bin_40 == ">40%"] <- "case"
+<!-- detach(temp) -->
 
-temp[,"IPH"] <- NA
-temp$IPH[IPH.bin == "no"] <- "control"
-temp$IPH[IPH.bin == "yes"] <- "case"
+<!-- # Making selection variable -->
+<!-- attach(temp) -->
+<!-- temp[,"SELECTION"] <- "not_selected" -->
+<!-- temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR")] <- "selected" -->
+<!-- detach(temp) -->
+<!-- table(temp$SELECTION, temp$QC2018_FILTER) -->
+<!-- table(temp$SELECTION, temp$STUDY_TYPE) -->
+<!-- table(temp$SELECTION, temp$PCA) -->
+<!-- table(temp$Plaque_Vulnerability_Index) -->
 
-temp[,"PVI"] <- NA
-temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0"
-temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1"
-temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2"
-temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3"
-temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4"
-temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5"
-
-temp$Plaque_Vulnerability_Index <- temp$PVI
-temp$PVI <- NULL
-
-detach(temp)
-
-# Making selection variable
-attach(temp)
-temp[,"SELECTION"] <- "not_selected"
-temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR") & Sex=="M"] <- "selected"
-detach(temp)
-table(temp$SELECTION, temp$QC2018_FILTER)
-table(temp$SELECTION, temp$STUDY_TYPE)
-table(temp$SELECTION, temp$PCA)
-```
+<!-- ``` -->
 
 
-```{r Save SampleSelect MALES}
-AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
+<!-- ```{r Save SampleSelect} -->
+<!-- # Check https://www.well.ox.ac.uk/~gav/snptest/#multinomial_tests for details on multiple categories testing in SNPTEST -->
 
-AEGS123_sample.list$missing <- 0
+<!-- AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),] -->
 
-sample_file_aegsM <- dplyr::select(AEGS123_sample.list,
-                                  ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be
-                                  UPID, STUDY_NUMBER, 
-                                  QC2018_FINAL, QC2018_FILTER, SELECTION,
-                                  AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA,
-                                  PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10,
-                                  Sex, Age, ORyear, 
-                                  Calcification, Collagen, 
-                                  Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
-                                  Plaque_Vulnerability_Index,
-                                  PCSK9_plasma, PCSK9_plasma_rankNorm)  %>%
-  mutate_if(is.numeric, as.character) %>%
-  mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
-  add_row(.before = 1, 
-          ID_1 = "0", ID_2 = "0", missing = "0", 
-          UPID = "D", STUDY_NUMBER = "C",
-          QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D",
-          AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D",
-          PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C",
-          Sex = "D", Age = "C", ORyear = "C", 
-          Calcification = "B", Collagen = "B", 
-          Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
-          Plaque_Vulnerability_Index = "D",
-          PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
-  print()
-dim(sample_file_aegsM)
+<!-- AEGS123_sample.list$missing <- 0 -->
 
+<!-- sample_file_aegs <- dplyr::select(AEGS123_sample.list, -->
+<!--                                   ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be -->
+<!--                                   UPID, STUDY_NUMBER,  -->
+<!--                                   QC2018_FINAL, QC2018_FILTER, SELECTION, -->
+<!--                                   AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA, -->
+<!--                                   PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10, -->
+<!--                                   Sex, Age, ORyear,  -->
+<!--                                   Calcification, Collagen,  -->
+<!--                                   Fat10, Fat40, IPH,  -->
+<!--                                   SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm, -->
+<!--                                   Plaque_Vulnerability_Index, -->
+<!--                                   PCSK9_plasma, PCSK9_plasma_rankNorm)  %>% -->
+<!--   mutate_if(is.numeric, as.character) %>% -->
+<!--   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>% -->
+<!--   add_row(.before = 1,  -->
+<!--           ID_1 = "0", ID_2 = "0", missing = "0",  -->
+<!--           UPID = "D", STUDY_NUMBER = "C", -->
+<!--           QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D", -->
+<!--           AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D", -->
+<!--           PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C", -->
+<!--           Sex = "D", Age = "C", ORyear = "C",  -->
+<!--           Calcification = "B", Collagen = "B",  -->
+<!--           Fat10 = "B", Fat40 = "B", IPH = "B",  -->
+<!--           SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P", -->
+<!--           Plaque_Vulnerability_Index = "D", -->
+<!--           PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier -->
+<!--   print() -->
+<!-- dim(sample_file_aegs) -->
 
-fwrite(sample_file_aegsM,
-       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.males.sample"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = TRUE,
-       showProgress = TRUE, verbose = TRUE)
+<!-- fwrite(sample_file_aegs, -->
+<!--        file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.sample"), -->
+<!--        na = "NA", sep = "\t", quote = FALSE, -->
+<!--        row.names = FALSE, col.names = TRUE, -->
+<!--        showProgress = TRUE, verbose = TRUE) -->
 
-require(DT)
-DT::datatable(sample_file_aegsM, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE)
+<!-- require(DT) -->
+<!-- DT::datatable(sample_file_aegs, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE) -->
 
-rm(temp)
-```
-
-## X-chromosome data
-
-The X-chromosome data is taken from previously imputed data based on 1000G phase 3 (version 5) and GoNL5. For some reason, imputing on the Michigan Imputation Server was not successful (*ACTION point*).
-
-Here we load in the sample files for the three datasets of the X chromosomal data. We should:
-
-- filter out samples that did not pass quality control, ending up with 2,124 sample
-- re-order the data to fit the other autosomal data.
+<!-- rm(temp, temp2, temp3) -->
+<!-- ``` -->
 
 
-```{r SampleList X}
+<!-- ### Females only -->
 
-AEGS123_chrX <- fread(paste0(MICHIMP_loc, "/_chr23_1kg_gonl5/aegs.raw.1kg_gonl5.chr23.mappings.txt"))
-names(AEGS123_chrX)[names(AEGS123_chrX) == "ID_1"] <- "SampleID_postImpChrX"
+<!-- This is the selection for females only. -->
 
-AEGS123_AllChr <- merge(AEGS123_chrX, sample_file_aegs, by.x = "SampleID_postMichImp", by.y = "ID_1", 
-                        all.x = TRUE, 
-                        sort = FALSE)
+<!-- ```{r TEMP SampleSelect FEMALES} -->
+<!-- require(openxlsx) -->
 
-names(AEGS123_AllChr)[names(AEGS123_AllChr) == "ID_2.y"] <- "ID_2"
-names(AEGS123_AllChr)[names(AEGS123_AllChr) == "STUDY_TYPE.y"] <- "STUDY_TYPE"
-names(AEGS123_AllChr)[names(AEGS123_AllChr) == "SampleID_postMichImp"] <- "ID_1"
-AEGS123_AllChr$missing.x <- NULL
-AEGS123_AllChr$missing.y <- NULL
-AEGS123_AllChr$STUDY_TYPE.x <- NULL
-AEGS123_AllChr$ID_2.x <- NULL
+<!-- temp <- subset(AEGS, -->
+<!--                GWAS == "genotyped", -->
+<!--                select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples! -->
+<!--                           "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC", -->
+<!--                           "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA", -->
+<!--                           "PC1", "PC2", "PC3", "PC4", "PC5", -->
+<!--                           "PC6", "PC7", "PC8", "PC9", "PC10", -->
+<!--                           "Sex", "Age", "ORyear",  -->
+<!--                           "BMI", -->
+<!--                           "Calc.bin", "Collagen.bin",  -->
+<!--                           "Fat.bin_10", "Fat.bin_40", "IPH.bin",  -->
+<!--                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",  -->
+<!--                           "OverallPlaquePhenotype", "Plaque_Vulnerability_Index", -->
+<!--                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest -->
+<!-- dim(temp) -->
 
-dim(AEGS123_AllChr)
-str(AEGS123_AllChr)
-```
+<!-- # Fix things -->
+<!-- attach(temp) -->
 
-This seems fine, let's filter; we can use this file to filter the genetic data. And we create another file to re-order the data.
+<!-- temp[,"Calcification"] <- NA -->
+<!-- temp$Calcification[Calc.bin == "no/minor"] <- "control" -->
+<!-- temp$Calcification[Calc.bin == "moderate/heavy"] <- "case" -->
 
-```{r SampleList X: filter}
+<!-- temp[,"Collagen"] <- NA -->
+<!-- temp$Collagen[Collagen.bin == "no/minor"] <- "control" -->
+<!-- temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case" -->
 
-AEGS123_AllChrQC <- subset(AEGS123_AllChr,
-               !is.na(QC2018_FILTER),
-               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX",
-                          "QC2018_FINAL", "QC2018_FILTER", "SELECTION",
-                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE",
-                          "PC1", "PC2", "PC3", "PC4", "PC5",
-                          "PC6", "PC7", "PC8", "PC9", "PC10",
-                          "Sex", "Age", "ORyear", 
-                          "Calcification", "Collagen", 
-                          "Fat10", "Fat40", "IPH", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
-                          "Plaque_Vulnerability_Index",
-                          "PCSK9_plasma", "PCSK9_plasma_rankNorm"))
+<!-- temp[,"Fat10"] <- NA -->
+<!-- temp$Fat10[Fat.bin_10 == "<10%"] <- "control" -->
+<!-- temp$Fat10[Fat.bin_10 == ">10%"] <- "case" -->
 
-AEGS123_AllChrQC_reorder <-AEGS123_AllChrQC[order(AEGS123_AllChrQC$ID_2),] # remember: ID_2 is the order of samples
+<!-- temp[,"Fat40"] <- NA -->
+<!-- temp$Fat40[Fat.bin_40 == "<40%"] <- "control" -->
+<!-- temp$Fat40[Fat.bin_40 == ">40%"] <- "case" -->
 
-AEGS123_AllChrQC_filtered <- subset(AEGS123_AllChr,
-               is.na(QC2018_FILTER),
-               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX",
-                          "QC2018_FINAL", "QC2018_FILTER", "SELECTION",
-                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE",
-                          "PC1", "PC2", "PC3", "PC4", "PC5",
-                          "PC6", "PC7", "PC8", "PC9", "PC10",
-                          "Sex", "Age", "ORyear", 
-                          "Calcification", "Collagen", 
-                          "Fat10", "Fat40", "IPH", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
-                          "Plaque_Vulnerability_Index",
-                          "PCSK9_plasma", "PCSK9_plasma_rankNorm"))
+<!-- temp[,"IPH"] <- NA -->
+<!-- temp$IPH[IPH.bin == "no"] <- "control" -->
+<!-- temp$IPH[IPH.bin == "yes"] <- "case" -->
 
-fwrite(AEGS123_AllChrQC_reorder,
-       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = TRUE,
-       showProgress = TRUE, verbose = TRUE)
+<!-- temp[,"PVI"] <- NA -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5" -->
 
-require(DT)
-DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped AE patients after quality control (chromosome X).", rownames = FALSE)
+<!-- temp$Plaque_Vulnerability_Index <- temp$PVI -->
+<!-- temp$PVI <- NULL -->
+
+<!-- detach(temp) -->
+
+<!-- # Making selection variable -->
+<!-- attach(temp) -->
+<!-- temp[,"SELECTION"] <- "not_selected" -->
+<!-- temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR") & Sex=="F"] <- "selected" -->
+<!-- detach(temp) -->
+<!-- table(temp$SELECTION, temp$QC2018_FILTER) -->
+<!-- table(temp$SELECTION, temp$STUDY_TYPE) -->
+<!-- table(temp$SELECTION, temp$PCA) -->
+<!-- ``` -->
 
 
-```
+<!-- ```{r Save SampleSelect FEMALES} -->
+<!-- AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),] -->
 
-# GWASToolKit preparation
+<!-- AEGS123_sample.list$missing <- 0 -->
 
-## VariantLists: top SNPs
+<!-- sample_file_aegsF <- dplyr::select(AEGS123_sample.list, -->
+<!--                                   ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be -->
+<!--                                   UPID, STUDY_NUMBER,  -->
+<!--                                   QC2018_FINAL, QC2018_FILTER, SELECTION, -->
+<!--                                   AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA, -->
+<!--                                   PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10, -->
+<!--                                   Sex, Age, ORyear,  -->
+<!--                                   Calcification, Collagen,  -->
+<!--                                   Fat10, Fat40, IPH,  -->
+<!--                                   SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm, -->
+<!--                                   Plaque_Vulnerability_Index, -->
+<!--                                   PCSK9_plasma, PCSK9_plasma_rankNorm)  %>% -->
+<!--   mutate_if(is.numeric, as.character) %>% -->
+<!--   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>% -->
+<!--   add_row(.before = 1,  -->
+<!--           ID_1 = "0", ID_2 = "0", missing = "0",  -->
+<!--           UPID = "D", STUDY_NUMBER = "C", -->
+<!--           QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D", -->
+<!--           AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D", -->
+<!--           PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C", -->
+<!--           Sex = "D", Age = "C", ORyear = "C",  -->
+<!--           Calcification = "B", Collagen = "B",  -->
+<!--           Fat10 = "B", Fat40 = "B", IPH = "B",  -->
+<!--           SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P", -->
+<!--           Plaque_Vulnerability_Index = "D", -->
+<!--           PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier -->
+<!--   print() -->
+<!-- dim(sample_file_aegsF) -->
 
-Here we create a `variantlist.txt` file used by **GWASToolKit** for analysis.These are the variants with LD r<sup>2</sup> => 0.6 around each of the 15 top SNPs associated with CAC.
+<!-- fwrite(sample_file_aegsF, -->
+<!--        file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.females.sample"), -->
+<!--        na = "NA", sep = "\t", quote = FALSE, -->
+<!--        row.names = FALSE, col.names = TRUE, -->
+<!--        showProgress = TRUE, verbose = TRUE) -->
 
-```{r create variantList}
-variant_list
+<!-- require(DT) -->
+<!-- DT::datatable(sample_file_aegsF, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE) -->
 
-temp <- subset(variant_list, select = c("VariantID", "Chr", "BP"))
+<!-- rm(temp) -->
+<!-- ``` -->
 
-fwrite(temp,
-       file = paste0(SNP_loc, "/variantlist.txt"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = FALSE,
-       showProgress = TRUE, verbose = TRUE)
-rm(temp)
-```
-<!-- ## VariantLists: Credible Set -->
+<!-- ### Males only -->
 
-<!-- Here we create a `crediblesetlist.txt` file used by **GWASToolKit** for analysis.These are the variants in the 95% credible set of causal variants for the 15 top SNPs associated with CAC. -->
+<!-- This is the selection for males only. -->
 
-<!-- ```{r create credset_list} -->
-<!-- credset_list -->
+<!-- ```{r TEMP SampleSelect MALES} -->
+<!-- require(openxlsx) -->
 
-<!-- temp <- subset(credset_list, select = c("VariantID", "Chr", "BP")) -->
+<!-- temp <- subset(AEGS, -->
+<!--                GWAS == "genotyped", -->
+<!--                select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples! -->
+<!--                           "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC", -->
+<!--                           "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA", -->
+<!--                           "PC1", "PC2", "PC3", "PC4", "PC5", -->
+<!--                           "PC6", "PC7", "PC8", "PC9", "PC10", -->
+<!--                           "Sex", "Age", "ORyear",  -->
+<!--                           "BMI", -->
+<!--                           "Calc.bin", "Collagen.bin",  -->
+<!--                           "Fat.bin_10", "Fat.bin_40", "IPH.bin",  -->
+<!--                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",  -->
+<!--                           "OverallPlaquePhenotype", "Plaque_Vulnerability_Index", -->
+<!--                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")) # Select some phenotype of interest -->
+<!-- dim(temp) -->
+
+<!-- # Fix things -->
+<!-- attach(temp) -->
+
+<!-- temp[,"Calcification"] <- NA -->
+<!-- temp$Calcification[Calc.bin == "no/minor"] <- "control" -->
+<!-- temp$Calcification[Calc.bin == "moderate/heavy"] <- "case" -->
+
+<!-- temp[,"Collagen"] <- NA -->
+<!-- temp$Collagen[Collagen.bin == "no/minor"] <- "control" -->
+<!-- temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case" -->
+
+<!-- temp[,"Fat10"] <- NA -->
+<!-- temp$Fat10[Fat.bin_10 == "<10%"] <- "control" -->
+<!-- temp$Fat10[Fat.bin_10 == ">10%"] <- "case" -->
+
+<!-- temp[,"Fat40"] <- NA -->
+<!-- temp$Fat40[Fat.bin_40 == "<40%"] <- "control" -->
+<!-- temp$Fat40[Fat.bin_40 == ">40%"] <- "case" -->
+
+<!-- temp[,"IPH"] <- NA -->
+<!-- temp$IPH[IPH.bin == "no"] <- "control" -->
+<!-- temp$IPH[IPH.bin == "yes"] <- "case" -->
+
+<!-- temp[,"PVI"] <- NA -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4" -->
+<!-- temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5" -->
+
+<!-- temp$Plaque_Vulnerability_Index <- temp$PVI -->
+<!-- temp$PVI <- NULL -->
+
+<!-- detach(temp) -->
+
+<!-- # Making selection variable -->
+<!-- attach(temp) -->
+<!-- temp[,"SELECTION"] <- "not_selected" -->
+<!-- temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR") & Sex=="M"] <- "selected" -->
+<!-- detach(temp) -->
+<!-- table(temp$SELECTION, temp$QC2018_FILTER) -->
+<!-- table(temp$SELECTION, temp$STUDY_TYPE) -->
+<!-- table(temp$SELECTION, temp$PCA) -->
+<!-- ``` -->
+
+
+<!-- ```{r Save SampleSelect MALES} -->
+<!-- AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),] -->
+
+<!-- AEGS123_sample.list$missing <- 0 -->
+
+<!-- sample_file_aegsM <- dplyr::select(AEGS123_sample.list, -->
+<!--                                   ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be -->
+<!--                                   UPID, STUDY_NUMBER,  -->
+<!--                                   QC2018_FINAL, QC2018_FILTER, SELECTION, -->
+<!--                                   AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA, -->
+<!--                                   PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10, -->
+<!--                                   Sex, Age, ORyear,  -->
+<!--                                   Calcification, Collagen,  -->
+<!--                                   Fat10, Fat40, IPH,  -->
+<!--                                   SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm, -->
+<!--                                   Plaque_Vulnerability_Index, -->
+<!--                                   PCSK9_plasma, PCSK9_plasma_rankNorm)  %>% -->
+<!--   mutate_if(is.numeric, as.character) %>% -->
+<!--   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>% -->
+<!--   add_row(.before = 1,  -->
+<!--           ID_1 = "0", ID_2 = "0", missing = "0",  -->
+<!--           UPID = "D", STUDY_NUMBER = "C", -->
+<!--           QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D", -->
+<!--           AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D", -->
+<!--           PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C", -->
+<!--           Sex = "D", Age = "C", ORyear = "C",  -->
+<!--           Calcification = "B", Collagen = "B",  -->
+<!--           Fat10 = "B", Fat40 = "B", IPH = "B",  -->
+<!--           SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P", -->
+<!--           Plaque_Vulnerability_Index = "D", -->
+<!--           PCSK9_plasma = "P", PCSK9_plasma_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier -->
+<!--   print() -->
+<!-- dim(sample_file_aegsM) -->
+
+
+<!-- fwrite(sample_file_aegsM, -->
+<!--        file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.males.sample"), -->
+<!--        na = "NA", sep = "\t", quote = FALSE, -->
+<!--        row.names = FALSE, col.names = TRUE, -->
+<!--        showProgress = TRUE, verbose = TRUE) -->
+
+<!-- require(DT) -->
+<!-- DT::datatable(sample_file_aegsM, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE) -->
+
+<!-- rm(temp) -->
+<!-- ``` -->
+
+<!-- ## X-chromosome data -->
+
+<!-- The X-chromosome data is taken from previously imputed data based on 1000G phase 3 (version 5) and GoNL5. For some reason, imputing on the Michigan Imputation Server was not successful (*ACTION point*). -->
+
+<!-- Here we load in the sample files for the three datasets of the X chromosomal data. We should: -->
+
+<!-- - filter out samples that did not pass quality control, ending up with 2,124 sample -->
+<!-- - re-order the data to fit the other autosomal data. -->
+
+
+<!-- ```{r SampleList X} -->
+
+<!-- AEGS123_chrX <- fread(paste0(MICHIMP_loc, "/_chr23_1kg_gonl5/aegs.raw.1kg_gonl5.chr23.mappings.txt")) -->
+<!-- names(AEGS123_chrX)[names(AEGS123_chrX) == "ID_1"] <- "SampleID_postImpChrX" -->
+
+<!-- AEGS123_AllChr <- merge(AEGS123_chrX, sample_file_aegs, by.x = "SampleID_postMichImp", by.y = "ID_1",  -->
+<!--                         all.x = TRUE,  -->
+<!--                         sort = FALSE) -->
+
+<!-- names(AEGS123_AllChr)[names(AEGS123_AllChr) == "ID_2.y"] <- "ID_2" -->
+<!-- names(AEGS123_AllChr)[names(AEGS123_AllChr) == "STUDY_TYPE.y"] <- "STUDY_TYPE" -->
+<!-- names(AEGS123_AllChr)[names(AEGS123_AllChr) == "SampleID_postMichImp"] <- "ID_1" -->
+<!-- AEGS123_AllChr$missing.x <- NULL -->
+<!-- AEGS123_AllChr$missing.y <- NULL -->
+<!-- AEGS123_AllChr$STUDY_TYPE.x <- NULL -->
+<!-- AEGS123_AllChr$ID_2.x <- NULL -->
+
+<!-- dim(AEGS123_AllChr) -->
+<!-- str(AEGS123_AllChr) -->
+<!-- ``` -->
+
+<!-- This seems fine, let's filter; we can use this file to filter the genetic data. And we create another file to re-order the data. -->
+
+<!-- ```{r SampleList X: filter} -->
+
+<!-- AEGS123_AllChrQC <- subset(AEGS123_AllChr, -->
+<!--                !is.na(QC2018_FILTER), -->
+<!--                select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX", -->
+<!--                           "QC2018_FINAL", "QC2018_FILTER", "SELECTION", -->
+<!--                           "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", -->
+<!--                           "PC1", "PC2", "PC3", "PC4", "PC5", -->
+<!--                           "PC6", "PC7", "PC8", "PC9", "PC10", -->
+<!--                           "Sex", "Age", "ORyear",  -->
+<!--                           "Calcification", "Collagen",  -->
+<!--                           "Fat10", "Fat40", "IPH",  -->
+<!--                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", -->
+<!--                           "Plaque_Vulnerability_Index", -->
+<!--                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")) -->
+
+<!-- AEGS123_AllChrQC_reorder <-AEGS123_AllChrQC[order(AEGS123_AllChrQC$ID_2),] # remember: ID_2 is the order of samples -->
+
+<!-- AEGS123_AllChrQC_filtered <- subset(AEGS123_AllChr, -->
+<!--                is.na(QC2018_FILTER), -->
+<!--                select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX", -->
+<!--                           "QC2018_FINAL", "QC2018_FILTER", "SELECTION", -->
+<!--                           "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", -->
+<!--                           "PC1", "PC2", "PC3", "PC4", "PC5", -->
+<!--                           "PC6", "PC7", "PC8", "PC9", "PC10", -->
+<!--                           "Sex", "Age", "ORyear",  -->
+<!--                           "Calcification", "Collagen",  -->
+<!--                           "Fat10", "Fat40", "IPH",  -->
+<!--                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", -->
+<!--                           "Plaque_Vulnerability_Index", -->
+<!--                           "PCSK9_plasma", "PCSK9_plasma_rankNorm")) -->
+
+<!-- fwrite(AEGS123_AllChrQC_reorder, -->
+<!--        file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"), -->
+<!--        na = "NA", sep = "\t", quote = FALSE, -->
+<!--        row.names = FALSE, col.names = TRUE, -->
+<!--        showProgress = TRUE, verbose = TRUE) -->
+
+<!-- require(DT) -->
+<!-- DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped AE patients after quality control (chromosome X).", rownames = FALSE) -->
+
+
+<!-- ``` -->
+
+<!-- # GWASToolKit preparation -->
+
+<!-- ## VariantLists: top SNPs -->
+
+<!-- Here we create a `variantlist.txt` file used by **GWASToolKit** for analysis.These are the variants with LD r<sup>2</sup> => 0.6 around each of the 15 top SNPs associated with CAC. -->
+
+<!-- ```{r create variantList} -->
+<!-- variant_list -->
+
+<!-- temp <- subset(variant_list, select = c("VariantID", "Chr", "BP")) -->
 
 <!-- fwrite(temp, -->
-<!--        file = paste0(SNP_loc, "/crediblesetlist.txt"), -->
+<!--        file = paste0(SNP_loc, "/variantlist.txt"), -->
+<!--        na = "NA", sep = "\t", quote = FALSE, -->
+<!--        row.names = FALSE, col.names = FALSE, -->
+<!--        showProgress = TRUE, verbose = TRUE) -->
+<!-- rm(temp) -->
+<!-- ``` -->
+<!-- <!-- ## VariantLists: Credible Set --> -->
+
+<!-- <!-- Here we create a `crediblesetlist.txt` file used by **GWASToolKit** for analysis.These are the variants in the 95% credible set of causal variants for the 15 top SNPs associated with CAC. --> -->
+
+<!-- <!-- ```{r create credset_list} --> -->
+<!-- <!-- credset_list --> -->
+
+<!-- <!-- temp <- subset(credset_list, select = c("VariantID", "Chr", "BP")) --> -->
+
+<!-- <!-- fwrite(temp, --> -->
+<!-- <!--        file = paste0(SNP_loc, "/crediblesetlist.txt"), --> -->
+<!-- <!--        na = "NA", sep = "\t", quote = FALSE, --> -->
+<!-- <!--        row.names = FALSE, col.names = FALSE, --> -->
+<!-- <!--        showProgress = TRUE, verbose = TRUE) --> -->
+<!-- <!-- rm(temp) --> -->
+<!-- <!-- ``` --> -->
+
+<!-- ## Gene list -->
+
+<!-- We export the list of genes for analysis in **GWASToolKit**. -->
+
+<!-- This code is to filter the list from genes that are not in the data. -->
+
+<!-- - _FBIN1_ ==> not found -->
+<!-- - _C1S1_ ==> not found -->
+<!-- - _FBIN1_ ==> not found -->
+<!--  _C1S1_ ==> not found -->
+<!--  _SERPIND2_ ==> not found -->
+<!--  _C1RA_ ==> not found -->
+<!--  _SEPINA1A_ ==> not found -->
+<!--  _TF_ ==> not found -->
+<!--  _SERPINA1B_ ==> not found -->
+<!--  _SERPINA1D_ ==> not found -->
+<!--  _PTXDC2_ ==> not found -->
+<!--  _KNG2_ ==> not found -->
+<!--  _SERPINA3N_ ==> not found -->
+<!--  _LBP_ ==> not found -->
+<!--  _RBP4_ ==> not found -->
+
+
+<!-- ```{r filter target genes} -->
+<!-- gene_list_rm <- c("FBIN1",  -->
+<!--                   "C1S1",  -->
+<!--                   "SERPIND2",  -->
+<!--                   "C1RA",  -->
+<!--                   "SEPINA1A",  -->
+<!--                   "TF", -->
+<!--                   "SERPINA1B", -->
+<!--                   "SERPINA1D", -->
+<!--                   "PTXDC2", -->
+<!--                   "KNG2",  -->
+<!--                   "SERPINA3N", -->
+<!--                   "LBP", -->
+<!--                   "RBP4")  -->
+
+<!-- temp = gene_list[!gene_list %in% gene_list_rm] -->
+
+<!-- gene_list_qc <- c(temp) -->
+
+<!-- # gene_list_qc <- gene_list -->
+<!-- #  -->
+<!-- # for debug -->
+<!-- # gene_list_qc_replace <- c("MRTFA") -->
+<!-- ``` -->
+
+<!-- Here we export this list, 1 gene per line.  -->
+
+<!-- ```{r create genelist} -->
+<!-- variant_list -->
+
+<!-- # temp <- subset(gene_list_df, select = c("Gene")) -->
+<!-- temp <- as.data.frame(gene_list_qc) -->
+<!-- fwrite(temp, -->
+<!--        file = paste0(SNP_loc, "/genelist.txt"), -->
 <!--        na = "NA", sep = "\t", quote = FALSE, -->
 <!--        row.names = FALSE, col.names = FALSE, -->
 <!--        showProgress = TRUE, verbose = TRUE) -->
 <!-- rm(temp) -->
 <!-- ``` -->
 
-## Gene list
+<!-- ## Covariates -->
 
-We export the list of genes for analysis in **GWASToolKit**.
+<!-- Here we create a `covariates.txt` file used by **GWASToolKit** for analysis. -->
 
-This code is to filter the list from genes that are not in the data.
+<!-- ```{r create covariatesList} -->
+<!-- library(tidyverse) -->
+<!-- # for 'overall' analyses -->
+<!-- c("Age Sex PC1 PC2 ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.txt")) -->
 
-- _FBIN1_ ==> not found
-- _C1S1_ ==> not found
-- _FBIN1_ ==> not found
- _C1S1_ ==> not found
- _SERPIND2_ ==> not found
- _C1RA_ ==> not found
- _SEPINA1A_ ==> not found
- _TF_ ==> not found
- _SERPINA1B_ ==> not found
- _SERPINA1D_ ==> not found
- _PTXDC2_ ==> not found
- _KNG2_ ==> not found
- _SERPINA3N_ ==> not found
- _LBP_ ==> not found
- _RBP4_ ==> not found
+<!-- # for sex-specific analyses -->
+<!-- c("Age PC1 PC2 ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.sex.txt")) -->
+<!-- ``` -->
 
+<!-- ## Phenotypes -->
 
-```{r filter target genes}
-gene_list_rm <- c("FBIN1", 
-                  "C1S1", 
-                  "SERPIND2", 
-                  "C1RA", 
-                  "SEPINA1A", 
-                  "TF",
-                  "SERPINA1B",
-                  "SERPINA1D",
-                  "PTXDC2",
-                  "KNG2", 
-                  "SERPINA3N",
-                  "LBP",
-                  "RBP4") 
+<!-- Here we create a `phenotypes.txt` file used by **GWASToolKit** for analysis. -->
 
-temp = gene_list[!gene_list %in% gene_list_rm]
+<!-- ```{r create phenotypesList} -->
+<!-- library(tidyverse) -->
+<!-- c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm") %>% write_lines(paste0(SNP_loc, "/phenotypes.txt")) -->
 
-gene_list_qc <- c(temp)
-
-# gene_list_qc <- gene_list
-# 
-# for debug
-# gene_list_qc_replace <- c("MRTFA")
-```
-
-Here we export this list, 1 gene per line. 
-
-```{r create genelist}
-variant_list
-
-# temp <- subset(gene_list_df, select = c("Gene"))
-temp <- as.data.frame(gene_list_qc)
-fwrite(temp,
-       file = paste0(SNP_loc, "/genelist.txt"),
-       na = "NA", sep = "\t", quote = FALSE,
-       row.names = FALSE, col.names = FALSE,
-       showProgress = TRUE, verbose = TRUE)
-rm(temp)
-```
-
-## Covariates
-
-Here we create a `covariates.txt` file used by **GWASToolKit** for analysis.
-
-```{r create covariatesList}
-library(tidyverse)
-# for 'overall' analyses
-c("Age Sex PC1 PC2 ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.txt"))
-
-# for sex-specific analyses
-c("Age PC1 PC2 ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.sex.txt"))
-```
-
-## Phenotypes
-
-Here we create a `phenotypes.txt` file used by **GWASToolKit** for analysis.
-
-```{r create phenotypesList}
-library(tidyverse)
-c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm") %>% write_lines(paste0(SNP_loc, "/phenotypes.txt"))
-
-c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi.txt"))
+<!-- c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi.txt")) -->
 
 
-```
+<!-- ``` -->
 
 
 # Session information
 
 ------------------------------------------------------------------------------------------------------------------------
 
-    Version:      v1.2.2
-    Last update:  2024-01-09
+    Version:      v1.3.0
+    Last update:  2025-03-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
 
     Changes log
+    * v1.3.0 Added baseline table writing of eQTL data subset. 
     * v1.2.2 Textual fixes.
     * v1.2.1 Fixed issue with baseline writing.
     * v1.2.0 Update to the study database. 
@@ -1062,5 +1193,5 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".SNP_analyses.RData"))
 ```
 
 +-----------------------------------------------------------------------------------------------------------------------------------------+
-| <sup>© 1979-2024 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
+| <sup>© 1979-2025 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
 +-----------------------------------------------------------------------------------------------------------------------------------------+

@@ -716,17 +716,17 @@ print(combined_plot_sma)
 
 
 # Save the plots
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.png"), plot = p1_males_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.ps"), plot = p1_males_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.pdf"), plot = p1_males_sma)
-
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.png"), plot = p2_females_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.ps"), plot = p2_females_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.pdf"), plot = p2_females_sma)
-
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.png"), plot = combined_plot_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.ps"), plot = combined_plot_sma)
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.pdf"), plot = combined_plot_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.png"), plot = p1_males_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.ps"), plot = p1_males_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderMales.pdf"), plot = p1_males_sma)
+# 
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.png"), plot = p2_females_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.ps"), plot = p2_females_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.GenderFemales.pdf"), plot = p2_females_sma)
+# 
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.png"), plot = combined_plot_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.ps"), plot = combined_plot_sma)
+# ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ColocGrouped.SMAonly.Gender.pdf"), plot = combined_plot_sma)
 
 ```
 
@@ -1367,7 +1367,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".NK.DEG.Targets.txt"),
 --------------------------------------------------------------------------------
 
     Version:      v1.2.0
-    Last update:  2024-10-17
+    Last update:  2025-03-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load single-cell RNA sequencing (scRNAseq) data, and perform quality control (QC), and initial mapping to cells.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -1408,6 +1408,6 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".AESCRNA.results.RData
 ```
 
 +-----------------------------------------------------------------------------------------------------------------------------------------+
-| <sup>© 1979-2024 Sander W. van der Laan | s.w.vanderlaan[at]gmail[dot]com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
+| <sup>© 1979-2025 Sander W. van der Laan | s.w.vanderlaan[at]gmail[dot]com | [vanderlaanand.science](https://vanderlaanand.science).</sup> |
 +-----------------------------------------------------------------------------------------------------------------------------------------+
 
