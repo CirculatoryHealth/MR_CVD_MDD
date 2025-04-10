@@ -36,7 +36,7 @@ install.packages.auto("writexl")
 install.packages.auto("tableone")
 install.packages.auto("flextable")
 install.packages.auto("officer")
-
+install.packages.auto("gtsummary")
 
 install.packages.auto("BlandAltmanLeh")
 

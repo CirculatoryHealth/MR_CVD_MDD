@@ -1160,26 +1160,26 @@ Showing the baseline table of the whole Athero-Express Biobank.
 # Create baseline tables
 # http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
 AEDB.tableOne = print(CreateTableOne(vars = basetable_vars, 
-                                         # factorVars = basetable_bin,
+                                         factorVars = basetable_bin,
                                          # strata = "Symptoms.4g",
                                          data = AEDB.full, includeNA = TRUE), 
                           nonnormal = c(), missing = TRUE,
-                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          quote = FALSE, noSpaces = TRUE, showAllLevels = TRUE, explain = TRUE, 
                           format = "pf", 
-                          contDigits = 3)[,1:3]
+                          contDigits = 3)
 ```
 
 ```{r Baseline AEDB: Visualize AEDB CEA}
 # Create baseline tables
 # http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
 AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
-                                         # factorVars = basetable_bin,
+                                         factorVars = basetable_bin,
                                          # strata = "Symptoms.4g",
                                          data = AEDB.CEA, includeNA = TRUE), 
                           nonnormal = c(), missing = TRUE,
-                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          quote = FALSE, noSpaces = TRUE, showAllLevels = TRUE, explain = TRUE, 
                           format = "pf", 
-                          contDigits = 3)[,1:3]
+                          contDigits = 3)
 ```
 
 
@@ -1187,153 +1187,99 @@ AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars,
 
 Let's save the baseline characteristics of the Athero-Express Biobank Study.
 
-```{r Baseline SampleSelection: write}
-# Write basetable
+```{r Baseline SampleSelection: write Prepare}
+library(gtsummary)
+library(dplyr)
 
-require(openxlsx)
+# Create the summary table, stratified by Gender
+AEDB.full.tbl <- AEDB.full %>%
+  select(all_of(basetable_vars), Gender) %>%
+  tbl_summary(
+    by = Gender,
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})"
+  ) %>%
+  add_p(test.args = all_categorical() ~ list(simulate.p.value = TRUE)) %>%
+  bold_labels()
 
-write.xlsx(format(as.data.frame(AEDB.tableOne), digits = 5, scientific = FALSE),
+# Create the summary table, stratified by Gender
+AEDB.CEA.tbl <- AEDB.CEA %>%
+  select(all_of(basetable_vars), Gender) %>%
+  tbl_summary(
+    by = Gender,
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})"
+  ) %>%
+  add_p(test.args = all_categorical() ~ list(simulate.p.value = TRUE)) %>%
+  bold_labels()
+
+```
+
+```{r Baseline SampleSelection: write Excel}
+library(writexl)
+
+# Convert to a clean data frame
+AEDB.full.tbl_df <- AEDB.full.tbl %>% as_tibble()
+
+# Save to Excel
+write.xlsx(AEDB.full.tbl_df,
            file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AE.BaselineTable.xlsx"), 
-           rowNames = TRUE, 
+           rowNames = FALSE, 
            colNames = TRUE, 
            sheetName = "AE_Base", overwrite = TRUE)
 
-write.xlsx(format(as.data.frame(AEDB.CEA.tableOne), digits = 5, scientific = FALSE),
-           file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AE.CEA.BaselineTable.xlsx"), 
-           rowNames = TRUE, 
-           colNames = TRUE, 
-           sheetName = "AE_Base_CEA", overwrite = TRUE)
-
-```
-
-Also writing it to a Word-document.
-
-```{r}
-# Load required libraries
-library(tableone)
-library(writexl)
-library(flextable)
-library(officer)
-library(dplyr)
-library(tibble)
-
-# Create Table 1 and store as a data frame
-AEDB.tableOne = print(CreateTableOne(vars = c(basetable_vars),
-                                     factorVars = basetable_bin,
-                                     # strata = "StudyName",
-                                     data = AEDB, 
-                                     includeNA = TRUE), 
-                      nonnormal = c(), 
-                      quote = FALSE, 
-                      showAllLevels = TRUE,
-                      format = "p", 
-                      contDigits = 3) %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column(var = "Variable")  # Convert row names to column
-
-# Extract clean variable names from CreateTableOne metadata
-var_names <- names(CreateTableOne(
-                  vars = c(basetable_vars),
-                  factorVars = basetable_bin,
-                  # strata = "StudyName",
-                  data = AEDB, 
-                  includeNA = TRUE)$MetaData$varNames)
-
-# Replace the "Variable" column with actual variable names
-AEDB.tableOne$Variable <- var_names
-
-# View output
-head(AEDB.tableOne)
-
-# Convert to a properly formatted data frame
-table_one_df <- print(AEDB.tableOne, 
-                      quote = FALSE, showAllLevels = TRUE,
-                      format = "p", contDigits = 3) %>%
-                as.data.frame()
-
-# Clean up variable names
-table_one_df <- rownames_to_column(table_one_df, var = "Variable")  # Convert row names to column
-table_one_df$Variable <- var_names  # Replace technical row names with actual variable names
+# Convert to a clean data frame
+AEDB.CEA.tbl_df <- AEDB.CEA.tbl %>% as_tibble()
 
 # Save to Excel
-write_xlsx(table_one_df, path = "TableOne.xlsx")
+write.xlsx(AEDB.CEA.tbl_df,
+           file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AE.CEA.BaselineTable.xlsx"), 
+           rowNames = FALSE, 
+           colNames = TRUE, 
+           sheetName = "AE_CEA", overwrite = TRUE)
+```
+
+
+```{r Baseline SampleSelection: write Word}
+library(officer)
+library(flextable)
 
 # Format for Word output with Calibri font and size 9
-ft <- flextable(table_one_df) %>%
+ft <- gtsummary::as_flex_table(AEDB.full.tbl) %>%
   theme_vanilla() %>%
   autofit() %>%
   set_table_properties(layout = "autofit") %>%
-  font(fontname = "Calibri", part = "all") %>%
-  fontsize(size = 9, part = "all")
+  flextable::font(fontname = "Calibri", part = "all") %>%
+  flextable::fontsize(size = 9, part = "all")
 
 # Save to Word
-doc <- read_docx()
-doc <- body_add_flextable(doc, ft)
+doc <- read_docx() %>%
+  body_add_par("Table 1. Baseline characteristics full Athero-Express Biobank Study") %>%
+  body_add_flextable(ft)
 print(doc, target = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AE.BaselineTable.docx"))
 
 # Print message
-message("Table exported successfully to TableOne.xlsx and TableOne.docx with Calibri font and size 9.")
-rm(table_one_df, ft, doc)
-```
+message("Table exported successfully to *.AE.BaselineTable.xlsx and *.AE.BaselineTable.docx with Calibri font and size 9.")
+rm(ft, doc)
 
-```{r}
-# Create Table 1 and store as a data frame
-AEDB.CEA.tableOne = print(CreateTableOne(vars = c(basetable_vars),
-                                     factorVars = basetable_bin,
-                                     # strata = "StudyName",
-                                     data = AEDB.CEA, 
-                                     includeNA = TRUE), 
-                      nonnormal = c(), 
-                      quote = FALSE, 
-                      showAllLevels = TRUE,
-                      format = "p", 
-                      contDigits = 3) %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column(var = "Variable")  # Convert row names to column
-
-# Extract clean variable names from CreateTableOne metadata
-var_names <- names(CreateTableOne(
-                  vars = c(basetable_vars),
-                  factorVars = basetable_bin,
-                  # strata = "StudyName",
-                  data = AEDB, 
-                  includeNA = TRUE)$MetaData$varNames)
-
-# Replace the "Variable" column with actual variable names
-AEDB.CEA.tableOne$Variable <- var_names
-
-# View output
-head(AEDB.CEA.tableOne)
-
-# Convert to a properly formatted data frame
-table_one_df <- print(AEDB.CEA.tableOne, 
-                      quote = FALSE, showAllLevels = TRUE,
-                      format = "p", contDigits = 3) %>%
-                as.data.frame()
-
-# Clean up variable names
-table_one_df <- rownames_to_column(table_one_df, var = "Variable")  # Convert row names to column
-table_one_df$Variable <- var_names  # Replace technical row names with actual variable names
-
-# Save to Excel
-write_xlsx(table_one_df, path = "TableOne.xlsx")
 
 # Format for Word output with Calibri font and size 9
-ft <- flextable(table_one_df) %>%
+ft <- gtsummary::as_flex_table(AEDB.CEA.tbl) %>%
   theme_vanilla() %>%
   autofit() %>%
   set_table_properties(layout = "autofit") %>%
-  font(fontname = "Calibri", part = "all") %>%
-  fontsize(size = 9, part = "all")
+  flextable::font(fontname = "Calibri", part = "all") %>%
+  flextable::fontsize(size = 9, part = "all")
 
 # Save to Word
-doc <- read_docx()
-doc <- body_add_flextable(doc, ft)
+doc <- read_docx() %>%
+  body_add_par("Table 1. Baseline characteristics Athero-Express Biobank Study -- CEA only") %>%
+  body_add_flextable(ft)
 print(doc, target = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AE.CEA.BaselineTable.docx"))
 
 # Print message
-message("Table exported successfully to TableOne.xlsx and TableOne.docx with Calibri font and size 9.")
-rm(table_one_df, ft, doc)
+message("Table exported successfully to *.AE.CEA.BaselineTable.xlsx and *.AE.CEA.BaselineTable.docx with Calibri font and size 9.")
+rm(ft, doc)
 ```
 
 
@@ -1352,8 +1298,8 @@ saveRDS(AEDB, file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEDB.raw.RDS"))
 
 ------------------------------------------------------------------------------------------------------------------------
 
-    Version:      v1.3.2
-    Last update:  2025-03-28
+    Version:      v1.3.3
+    Last update:  2025-04-10
     Written by:   Sander W. van der Laan (s.w.vanderlaan[at]gmail[dot]com).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics in the whole cohort and the CEA subset.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
@@ -1369,6 +1315,7 @@ saveRDS(AEDB, file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEDB.raw.RDS"))
     _W_
 
     **Changes log**
+    * v1.3.3 Fixed an issue where the Word-document output was not working properly.
     * v1.3.2 Add Word-document output. 
     * v1.3.0 Major update to the AEDB.
     * v1.2.2 Project updates. Fixes to links and date.
