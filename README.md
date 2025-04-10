@@ -120,8 +120,8 @@ Dr. Sander W. van der Laan has received Roche funding for unrelated work.
 
 #### Changes log
     
-    _Version:_      v1.4.0</br>
-    _Last update:_  2025-03-28</br>
+    _Version:_      v1.4.1</br>
+    _Last update:_  2025-04-10</br>
     _Written by:_   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     
     **MoSCoW To-Do List**
@@ -135,6 +135,7 @@ Dr. Sander W. van der Laan has received Roche funding for unrelated work.
     _W_
 
     **Changes log**
+    * v1.4.1 Fixed some issues with writing the baseline tables. 
     * v1.4.0 Total re-organization. Updated to AEDB. Updated to RNAseq (deeper sequencing). Added baseline table for samples in eQTL analyses (b37 version).
     * v1.3.1 Fixed baseline table writing. Added additional saving options (raw, normalized, and log-transformed data) for the bulk RNAseq.
     * v1.3.0 Some script changes. Update to AEDB. Update to RNAseq (deeper sequencing). 
