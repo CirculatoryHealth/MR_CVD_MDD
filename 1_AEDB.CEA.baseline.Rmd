@@ -1335,7 +1335,9 @@ sessionInfo()
 # Saving environment
 
 ```{r Saving}
+
 save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".AEDB.CEA.baseline.RData"))
+
 ```
 
 +-----------------------------------------------------------------------------------------------------------------------------------------+
