@@ -1,0 +1,360 @@
+---
+title: "CVD-DEP (reverse) MR"
+output: html_document
+date: "2024-02-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment = NULL, warning = FALSE, message = FALSE)
+
+#Try MR
+source("C:/Users/emma/Documents/git/mr-coloc/Scripts/setup.R")
+
+# required columns for outcome: rsid, beta, se, eaf, effect_allele_col, other_allele_col, pval
+```
+
+
+```{r eval = FALSE}
+# read in outcome data, PGC DEP
+outcome_data = read_outcome_data(
+  filename = here("sumstats", "DEP", "pgc-mdd2022-full-eur-v3.49.24.11.pgc"),
+  sep = "\t",
+  snp_col = "ID",
+  beta_col = "BETA",
+  se_col = "SE",
+  eaf_col = "FCON",
+  effect_allele_col = "A1",
+  other_allele_col = "A2",
+  #samplesize_col = "NEFF", # or should I make new col NCAS + NCON?
+  log_pval = FALSE,
+  pval_col = "PVAL",
+  chr_col = "CHR",
+  pos_col = "BP"
+)
+outcome_data$outcome <- "DEP"
+```
+
+
+```{r eval = FALSE}
+cvd_traits <- c("ALLSTROKE", "IS", "CES", "LAS", "CAD", "CAC", "CIMT") # removed SVD because it comes out with no significant hits
+
+exposure_list <- list()
+
+for (i in cvd_traits) {
+  
+  # read in exposure data, CVD
+  file <- paste0(i, "_with_RSID.tsv")
+  
+  exposure_data = read_exposure_data(
+    filename = here("sumstats", i, file),
+    sep = "\t",
+    #snps = exposure_data$ID,
+    snp_col = "RSID",
+    beta_col = "beta",
+    se_col = "standard_error",
+    eaf_col = "effect_allele_frequency",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "other_allele",
+    pval_col = "p_value",
+    #ncase_col = "NCAS",
+    #ncontrol_col = "NCON",
+    log_pval = FALSE,
+    chr_col = "CHR",
+    pos_col = "BP"
+  )
+  exposure_data$exposure <- i
+  
+  exposure_list[[i]] <- exposure_data
+  
+}
+
+exposure_list
+save(exposure_list, file = here("Int-results", "CVDsumstats_exposure_forReverseMR.RData"))
+```
+
+SVD phenotype had to be excluded because there were no SNPs left after p-value filter.
+
+```{r preprocessing, eval = FALSE}
+# outcome remains outcome_data, but exposure_data comes from exposure_list
+
+SNP_numbers <- c() # store how many SNPs are left after each filtering step
+preprocessed_list <- list()
+
+for ( i in cvd_traits){
+  exposure_data <- exposure_list[[i]]
+  
+  # Keep only SNPs that are in both datasets
+  exposure_data <- exposure_data[exposure_data$SNP %in% outcome_data$SNP,]
+  outcome_data_small <- outcome_data[outcome_data$SNP %in% exposure_data$SNP,] # use new name to not change outcome_data permanently
+  
+  # Filtering and clumping in the exposure data
+  # pvalue filter
+  exposure_data_topsnps = exposure_data[exposure_data$pval.exposure < 5e-08, ]
+  # maf filter
+  exposure_data_topsnps_maf = exposure_data_topsnps %>% filter(eaf.exposure < 0.99 & eaf.exposure > 0.01)
+  
+  # clumping
+  # using own function wrappers of plink clumping to adapt to using local ld files rather than server
+  # plink_bin <- "C:/Users/emma/AppData/Local/R/win-library/4.3/genetics.binaRies/bin/plink2.exe"
+  # bfile = here("ld_files", "g1000_eur")
+  exposure_data_clumped <- clump_data_locally( # defaults are clump_kb = 10000, clump_r2 = 0.001
+    dat = exposure_data_topsnps_maf, 
+    bfile = "C:/Users/emma/Documents/git/ld-files/g1000_eur",
+    plink_bin = "C:/Users/emma/AppData/Local/R/win-library/4.3/genetics.binaRies/bin/plink2.exe"
+  )
+  
+  harmonised_data <- harmonise_data(exposure_dat = exposure_data_clumped, outcome_dat = outcome_data_small)
+  
+  # Store some info about filtering process
+  SNP_numbers <- c()
+  SNP_numbers["beforefilter"] <- dim(exposure_data)[1]
+  SNP_numbers["pval"] <- dim(exposure_data_topsnps)[1]
+  SNP_numbers["maf"] <- dim(exposure_data_topsnps_maf)[1]
+  SNP_numbers["clumped"] <- dim(exposure_data_clumped)[1]
+  SNP_numbers["harmonised"] <- dim(harmonised_data)[1]
+  
+  # And return something
+  preprocessed_list[[i]] <- list(data = harmonised_data, log = SNP_numbers)
+  
+}
+
+preprocessed_list
+save(preprocessed_list, file = here("Data", "CVDsumstats_preprocessed_forReverseMR.RData"))
+```
+
+
+
+```{r results, eval = FALSE}
+main_results_mr <- list()
+
+for (i in names(preprocessed_list)) {
+  preprocessed_data <- preprocessed_list[[i]][["data"]]
+  
+  # Run MR using various methods
+  mr_output <- mr(preprocessed_data, method_list = c("mr_ivw", 'mr_weighted_median', "mr_egger_regression"))
+
+  mr_or <- generate_odds_ratios(mr_output)
+  # to adjust for multiple testing using Benjamini-Hochberg procedure use FDR = p.adjust(pvalues, method="BH")
+  # https://www.r-bloggers.com/2023/07/the-benjamini-hochberg-procedure-fdr-and-p-value-adjusted-explained/
+  print(mr_or)
+  
+  scatterplot <- mr_scatter_plot(mr_output, preprocessed_data)
+  
+  # Instrument strength
+  fstatistic <- (preprocessed_data$beta.exposure^2) / (preprocessed_data$se.exposure^2) # approximation for sumstats
+  f_range <- c(min(fstatistic), max(fstatistic)) # F should not be < 10 (Pierce et al. 2011)
+  
+  # Heterogeneity
+  mr_het <- mr_heterogeneity(preprocessed_data) # Chochran's Q
+  mr_leave1out <- mr_leaveoneout(preprocessed_data) # results for leave 1 out plot
+  oneout_plot <- mr_leaveoneout_plot(mr_leave1out) # leave 1 out plot
+  mr_1snp <- mr_singlesnp(preprocessed_data) # results for single SNP plot
+  onein_plot <- mr_forest_plot(mr_1snp) # single SNP plot
+  
+  # Horizontal Pleiotropy
+  mr_pleiot <- mr_pleiotropy_test(preprocessed_data) # this gives the egger_intercept
+  print(mr_pleiot)
+  mr_presso_output <- try(run_mr_presso(preprocessed_data, NbDistribution = 1000, SignifThreshold = 0.05)) # MR_presso - with outlier correction
+  
+  main_results_mr[[i]] <- list(mr_output = mr_output, mr_or = mr_or, scatterplot = scatterplot
+                               , f_range = f_range, mr_het = mr_het, mr_leave1out = mr_leave1out
+                               , oneout_plot = oneout_plot ,mr_1snp = mr_1snp, onein_plot = onein_plot
+                               , mr_pleiot = mr_pleiot, mr_presso_output = mr_presso_output)
+} 
+
+main_results_mr
+save(main_results_mr, file = here("Results", "MR", "CVD_ReverseMR_results.RData"))
+```
+
+
+# Main results (basic OR)
+
+```{r}
+load(here("Results", "MR", "CVD_ReverseMR_results.RData"))
+
+# Nice table of main results
+or_full_df <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_or")))[c(3,4,5,6,12,13,14,9)]
+or_full_df$pval <- formatC(or_full_df$pval, format = "e", digits = 2) # pvalues to scientific notation
+or_full_df <- or_full_df %>% 
+  rename("or.lci95" = "or_lci95", "or.uci95" = "or_uci95") %>% # change separator
+  mutate(across(c(or, or.lci95, or.uci95), ~ round(.x, digits = 2))) # round to two digits
+
+or_wide_df <- pivot_wider(
+  data = or_full_df,
+  names_from = method,
+  names_vary = "slowest",
+  names_glue = "{method}_{.value}",
+  values_from = c(or, or.lci95, or.uci95, pval)
+)
+
+flextable(or_wide_df) %>% separate_header(split = "_") %>%  fontsize(size = 14) %>% fit_to_width(8) %>% autofit()
+
+# Special OR
+mr_beta <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_output"))) |> 
+  mutate(b = b * log(2))
+special_or <- generate_odds_ratios(mr_beta)
+
+special_full_df <- special_or[c(3,4,5,6,12,13,14,9)] |>
+  rename("or.lci95" = "or_lci95", "or.uci95" = "or_uci95") |> # change separator
+  mutate(across(c(or, or.lci95, or.uci95), ~ round(.x, digits = 2))) |>  # round to two digits
+  mutate(across(c(pval), ~ formatC(.x, format = "e", digits = 2)))
+special_wide_df <- pivot_wider(
+  data = special_full_df,
+  names_from = method,
+  names_vary = "slowest",
+  names_glue = "{method}_{.value}",
+  values_from = c(or, or.lci95, or.uci95, pval)
+)
+flextable(special_wide_df) %>% separate_header(split = "_") %>%  fontsize(size = 14) %>% fit_to_width(8) %>% autofit()
+```
+
+
+
+
+```{r}
+# load(here("Results", "CVD_mr_results.RData"))
+# 
+# # Nice table of main results
+# full_df <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_output")))[c(3,4,5,6,7,8,9)]
+# or_full_df$pval <- formatC(or_full_df$pval, format = "e", digits = 2) # pvalues to scientific notation
+# or_full_df <- or_full_df %>% 
+#   rename("or.lci95" = "or_lci95", "or.uci95" = "or_uci95") %>% # change separator
+#   mutate(across(c(or, or.lci95, or.uci95), ~ round(.x, digits = 2))) # round to two digits
+# 
+# or_wide_df <- pivot_wider(
+#   data = or_full_df,
+#   names_from = method,
+#   names_vary = "slowest",
+#   names_glue = "{method}_{.value}",
+#   values_from = c(or, or.lci95, or.uci95, pval)
+# )
+# 
+# flextable(or_wide_df) %>% separate_header(split = "_")
+```
+
+```{r fig.dim = c(8, 17)}
+# Plot collection
+# plots <- unlist(map(main_results_mr, "scatterplot"))
+p1 <- main_results_mr$ALLSTROKE$scatterplot$TRVrVW.y33OWX
+p2 <- main_results_mr$IS$scatterplot$yfcdHB.y33OWX
+p3 <- main_results_mr$CES$scatterplot$zK1V5p.y33OWX
+p4 <- main_results_mr$LAS$scatterplot$I70rhI.y33OWX
+p6 <- main_results_mr$CAD$scatterplot$MXdcsb.y33OWX
+p7 <- main_results_mr$CAC$scatterplot$p3OH0a.y33OWX
+p8 <- main_results_mr$CIMT$scatterplot$Jr7kEe.y33OWX
+
+p1 + p2 + p3 + p4 + p6 + p7 + p8 +
+  plot_layout(ncol = 2, guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+# MR more analyses
+
+## Instrument strength
+
+```{r }
+# # Test instrument strength
+# fstatistic <- (harmonised_data$beta.exposure^2) / (harmonised_data$se.exposure^2) # approximation for sumstats
+# min(fstatistic) # F should not be < 10 (Pierce et al. 2011)
+# max(fstatistic)
+
+fstats <- as.data.frame(do.call("rbind", map(main_results_mr, "f_range")))
+fstats <- cbind(or_wide_df$nsnp, round(fstats, 4))
+colnames(fstats) <- c("N SNPs", "F-statistics_min", "F-statistics_max" )
+
+flextable(fstats %>% rownames_to_column( var = "Outcome")) %>% separate_header()
+```
+
+
+
+# Heterogeneity
+
+## Cochran's Q
+A significant Cochran's Q indicates presence of an outlier.
+
+```{r }
+# # Heterogeneity
+# mr_het <- mr_heterogeneity(harmonised_data) # this give Cochran's Q (if significant indicates outlier), one for Egger + one for IVW
+qstats <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_het")))
+qstats["Q"] <- round(qstats["Q"])
+qstats["df"] <- qstats["Q_df"]
+qstats["pvalue"] <- formatC(qstats$Q_pval, format = "e", digits = 2)
+qstats <- cbind(qstats[c("outcome", "exposure", "method", "Q", "df", "pvalue")])
+
+q_wide <- pivot_wider(
+  data = qstats,
+  names_from = method,
+  names_vary = "slowest",
+  names_glue = "{method}_{.value}",
+  values_from = c(Q, df, pvalue)
+)
+
+flextable(q_wide) %>% separate_header(split = "_") %>% add_header_row(values = c("", "Cochran's Q"), colwidths = c(2, 6))
+```
+
+
+## Leave one out analysis
+
+```{r }
+map(main_results_mr, "oneout_plot")
+```
+
+## Single SNP analysis
+
+```{r }
+map(main_results_mr, "onein_plot")
+```
+
+# Horizontal Pleiotropy
+
+## MR-Egger Intercept
+
+```{r }
+# Pleiotropy
+mr_pleiot <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_pleiot")))
+mr_pleiot[c("egger_intercept", "se")] <- round(mr_pleiot[c("egger_intercept", "se")], 5)
+mr_pleiot["pval"] <- formatC(mr_pleiot$pval, format = "e", digits = 2)
+
+flextable(mr_pleiot[-c(1,2)])
+```
+
+## MR presso
+
+```{r}
+# MR_presso
+mr_presso <- map(main_results_mr, c("mr_presso_output"))
+mr_presso <- mr_presso[-4]
+
+outlier_corrected <- do.call( "rbind", 
+                              lapply(mr_presso, function(x) {
+                                x[[1]][["Main MR results"]][2, c("Causal Estimate", "Sd", "P-value")]
+                                }))
+
+global_test <- as.data.frame(do.call( "rbind", 
+                              lapply(mr_presso, function(x) {
+                                unlist(x[[1]][["MR-PRESSO results"]][["Global Test"]])
+                                })))
+
+distortion_coefficient <- as.data.frame(do.call( "rbind", 
+                              lapply(mr_presso, function(x) {
+                                x[[1]][["MR-PRESSO results"]][["Distortion Test"]][["Distortion Coefficient"]]
+                                })))
+distortion_pvalue <- as.data.frame(do.call( "rbind", 
+                              lapply(mr_presso, function(x) {
+                                unlist(x[[1]][["MR-PRESSO results"]][["Distortion Test"]][["Pvalue"]])
+                                })))
+
+or_wide_df <- or_wide_df[-4,]
+mr_presso_table <- cbind(or_wide_df$outcome, or_wide_df$exposure, or_wide_df$nsnp, global_test, outlier_corrected) #, distortion_coefficient, distortion_pvalue)
+colnames(mr_presso_table) <- c("Outcome", "Exposure", "N SNPs", "GlobalTest_RSS", "GlobalTest_pvalue", "OutlierCorrected_estimate", "OutlierCorrected_se", "OutlierCorrected_pvalue") #, "DistortionTest_Coefficient", "DistortionTest_pvalue")
+mr_presso_table$OutlierCorrected_pvalue <- formatC(mr_presso_table$OutlierCorrected_pvalue, format = "e", digits = 2)
+mr_presso_table$GlobalTest_RSS <- round(as.numeric(mr_presso_table$GlobalTest_RSS), 3)
+
+
+flextable(mr_presso_table) %>% separate_header() %>% fit_to_width(8)
+```
+
+
+
+
+

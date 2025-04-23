@@ -1,0 +1,85 @@
+---
+title: "RACER plots"
+output: html_document
+date: "2024-04-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment = NULL, warning = FALSE, message = FALSE)
+
+# Packages
+source("C:/Users/emma/Documents/git/mr-coloc/setup.R")
+```
+
+
+```{r eval = FALSE}
+pgc_columns <- c("ID", "#CHROM", "POS", "PVAL")
+DEP <- as.data.frame(fread(here("Data", "DEP", "pgc-mdd2022-full-eur-v3.49.24.11.pgc"), select = pgc_columns))
+DEP <- formatRACER(assoc_data = DEP, chr_col = 2, pos_col = 3, p_col = 4, rs_col = 1)
+head(DEP)
+
+with_rsid_columns <- c("RSID", "CHR", "BP", "p_value")
+ALLSTROKE <- as.data.frame(fread(here("Data", "ALLSTROKE", "ALLSTROKE_with_rsid.tsv"), select = with_rsid_columns))
+ALLSTROKE <- formatRACER(assoc_data = ALLSTROKE, chr_col = 2, pos_col = 3, p_col = 4, rs_col = 1)
+head(ALLSTROKE)
+
+IS <- as.data.frame(fread(here("Data", "IS", "IS_with_rsid.tsv"), select = with_rsid_columns))
+IS <- formatRACER(assoc_data = IS, chr_col = 2, pos_col = 3, p_col = 4, rs_col = 1)
+head(IS)
+
+CAD <- as.data.frame(fread(here("Data", "CAD", "CAD_with_rsid.tsv"), select = with_rsid_columns))
+CAD <- formatRACER(assoc_data = CAD, chr_col = 2, pos_col = 3, p_col = 4, rs_col = 1)
+head(CAD)
+```
+
+
+
+```{r}
+# 10 colocalising SNPs
+coloc_output <- read.csv(file = here("Results", "coloc_DEP-CVD_output.csv"))
+hits <- coloc_output[1:10,1:4]
+
+# Make plots
+plot_list <- list()
+
+# Note: this loop may fail due to not being able to open the LD connection
+for ( i in rownames(hits)) {
+  # Assign the second (CVD) dataframe
+  CVD_pheno <- hits[i, "CV.Phenotype"]
+  CVD_df <- eval(parse(text = CVD_pheno))
+  
+  snp <- hits[i, "lead.snp"]
+  chr <- hits[i, "CHR"]
+  pos <- hits[i, "POS"]
+  
+  # Calculate LD with SNP of interest
+  DEP_ld <- ldRACER(assoc_data = DEP, rs_col = 1, pops = "EUR", lead_snp = snp)
+  CVD_ld <- ldRACER(assoc_data = CVD_df, rs_col = 1, pops = "EUR", lead_snp = snp)
+  
+  # Make plot and store
+  p <- mirrorPlotRACER(assoc_data1 = DEP_ld, assoc_data2 = CVD_ld,
+                       name1 = "Association with Depression", name2 = paste0("Association with ", CVD_pheno), 
+                       chr = chr, plotby = "coord", start_plot = pos-250000, end_plot = pos+250000)
+  plot_list[[i]] <- p
+}
+
+save(plot_list, file = here("Int-results", "finalRACERplots.RData"))
+```
+
+
+```{r}
+# In reality the loop above failed regularly due to not being able to access the LD server, so separate lists were saved
+# Here we combine the RACER plots lists
+load(here("Results", "1RACERplots.Rdata"))
+plot_list_1 <- plot_list
+load(here("Results", "3RACERplots.RData"))
+plot_list_2 <- plot_list
+load(here("Results", "5RACERplots.RData"))
+plot_list_3 <- plot_list
+load(here("Results", "finalRACERplots.RData"))
+plot_list_4 <- plot_list
+
+complete_plot_list <- c(plot_list_1, plot_list_2, plot_list_3, plot_list_4)
+names(complete_plot_list) <- paste(hits$CV.Phenotype, hits$lead.snp, sep = "_")
+save(complete_plot_list, file = here("Int-results", "RACERplots.RData"))
+```
