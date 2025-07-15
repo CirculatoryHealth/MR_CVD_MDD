@@ -1,10 +1,10 @@
 <!--  Provide a title.         -->
-## Genomics-based identification of shared mechanism in different tissues connecting major depression with atherosclerotic disease
+## Major depression and atherosclerotic disease: Linking shared genetics to pathways in blood, brain, heart, and atherosclerotic plaques
 
 <!--  Provide details on the people involved and the project ID.         -->
 *Collaborators*
 
-Emma Pruin, Meike Bartels, Noortje van den Dungen, Joost Hoekstra, Dominique D.P. de Kleijn, Michal Mokry, Gerard Pasterkamp, Brenda Penninx, Wouter Peyrot, Hester M. den Ruijter, S.W. van der Laan, PhD*, Y. Milaneschi, PhD*.
+Emma Pruin, Meike Bartels, Ernest Diez Benavente, Noortje van den Dungen, Joost Hoekstra, Dominique D.P. de Kleijn, Michal Mokry, Gerard Pasterkamp, Brenda Penninx, Wouter Peyrot, Hester M. den Ruijter, S.W. van der Laan, PhD*, Y. Milaneschi, PhD*.
 * these authors contributed equally
 
 **Project ID** [`MR_CVD_MDD`]
@@ -12,16 +12,16 @@ Emma Pruin, Meike Bartels, Noortje van den Dungen, Joost Hoekstra, Dominique D.P
 
 ### Background
 <!--  Provide some background, study design, results, etc.         -->
-The high comorbidity of depression and atherosclerotic diseases may be linked to shared biological processes. The main process of atherosclerosis, the buildup of plaques in the vascular system, has not been investigated in connection with depression. Here, we examined whether the shared genetic basis of major depressive disorder (MDD) and atherosclerotic diseases was linked to altered gene expression in specific tissues, including the atherosclerotic plaque.
+The increased risk of atherosclerotic diseases (stroke, coronary artery disease [CAD]) observed in depression may stem from shared pathophysiology. We examined whether: 1) major depression (MD) and atherosclerotic traits share genetic risk, and 2) altered gene expression in various tissues linked to shared genetics has a potential causal role in depression etiology.
 
 ### Methods
-Regions of high probability for shared causal genetic variants were identified using a combined approach of Mendelian Randomization and colocalization based on summary statistics of the newest available GWAS (N_MDD = 3,887,532). Shared causal regions were submitted to SMR-HEIDI, testing for effects of gene expression on MDD. Alongside eQTL datasets for whole blood (eQTLGen, N = 31,684), brain (BrainMeta, N = 2,865), and various other tissues (GTEx, N  > 134), we leverage eQTL from atherosclerotic plaques (Athero-Express, N = 656). 
+Data from the largest genome-wide association studies of MD (N=3,887,532) and 8 atherosclerotic traits (N=26,909-1,308,460) were used in Mendelian randomization and colocalization to detect cross-trait causal associations and genomic loci containing shared causal variants. In shared loci, summary data-based Mendelian randomization estimated the effects of gene expression on MD etiology using expression quantitative trait loci datasets from whole blood, brain and heart tissues and atherosclerotic plaques from the Athero-Express Biobank Study.
 
 ### Results
-We found eight genomic regions with high (> 0.8) posterior probability for containing shared causal variants for MDD and atherosclerotic disease. Significant causal estimates of gene expression on MDD were found in tissues such as whole blood, brain, and heart. No significant causal estimates were found for the effect of gene expression in the atherosclerotic plaque on depression. 
+MD genetic liability increased risk of any stroke (OR=1.15, p=9.47×10−8), ischemic stroke (OR=1.16, p=1.52×10−7), small vessel disease (OR=1.34, p=4.76×10−5) and CAD (OR=1.2, 95%CIs=1.13-1.26, p=3.76×10−22). Eight genomic regions harbored potentially shared causal variants, including one on chromosome 7 linking MD with any stroke, ischemic stroke and CAD. Altered expression of 16 genes in blood, 10 in brain, and 6 in heart was found causal for MD etiology. In atherosclerotic plaques, one gene was linked to MD at nominal significance only.
 
 ### Conclusion
-This study indicates that the shared genetic vulnerability with atherosclerosis acts on MDD partially through expression of various genes in tissues such as whole blood and the brain. Gene expression in severe atherosclerotic lesions did not appear to be involved in disease mechanisms.
+Major depression and atherosclerotic diseases share genetic risk potentially acting in depression pathophysiology through expression of genes in blood, brain and heart tissues. An involvement of atherosclerotic plaques in depression etiology was not supported. Identified pathways could guide the development of new treatments to prevent depression-heightened atherosclerotic risk.
 
 
 **Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
@@ -120,8 +120,8 @@ Dr. Sander W. van der Laan has received Roche funding for unrelated work.
 
 #### Changes log
     
-    _Version:_      v1.4.1</br>
-    _Last update:_  2025-04-10</br>
+    _Version:_      v1.4.2</br>
+    _Last update:_  2025-07-15</br>
     _Written by:_   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     
     **MoSCoW To-Do List**
@@ -135,6 +135,7 @@ Dr. Sander W. van der Laan has received Roche funding for unrelated work.
     _W_
 
     **Changes log**
+    * v1.4.2 Cleaning up. 
     * v1.4.1 Fixed some issues with writing the baseline tables. 
     * v1.4.0 Total re-organization. Updated to AEDB. Updated to RNAseq (deeper sequencing). Added baseline table for samples in eQTL analyses (b37 version).
     * v1.3.1 Fixed baseline table writing. Added additional saving options (raw, normalized, and log-transformed data) for the bulk RNAseq.
@@ -153,24 +154,5 @@ Dr. Sander W. van der Laan has received Roche funding for unrelated work.
 
 --------------
 
-#### Creative Commons BY-NC-ND 4.0
+#### [Creative Commons BY-NC-ND 4.0](LICENSE)
 ##### Copyright (c) 1979-2025 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
-
-<sup>This is a human-readable summary of (and not a substitute for) the [license](LICENSE). </sup>
-</br>
-<sup>You are free to share, copy and redistribute the material in any medium or format. The licencor cannot revoke these freedoms as long as you follow the license terms.</br></sup>
-</br>
-<sup>Under the following terms: </br></sup>
-<sup><em>- Attribution</em> — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.</br></sup>
-<sup><em>- NonCommercial</em> — You may not use the material for commercial purposes.</br></sup>
-<sup><em>- NoDerivatives</em> — If you remix, transform, or build upon the material, you may not distribute the modified material.</br></sup>
-<sup><em>- No additional</em> restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.</br></sup>
-</br></sup>
-<sup>Notices: </br></sup>
-<sup>You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
-No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.</sup>
-
-
-
-
-
