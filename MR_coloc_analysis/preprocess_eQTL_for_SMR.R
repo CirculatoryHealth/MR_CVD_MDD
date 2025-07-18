@@ -230,15 +230,3 @@ smr_results <- left_join(smr_results, pvalue_thresholds, by = c("Gene"))
 
 # save
 write.csv(smr_results, here("Results", "smr_results.csv"), row.names = F)
-
-# Notes
-# I checked those probe files with many duplicated SNPs 'manually' 
-# duplicated_snps[[i]] <- rbind(
-# subset(cis_eqtl_probefiles[[i]], duplicated(cis_eqtl_probefiles[[i]]$SNP)),
-# subset(cis_eqtl_probefiles[[i]], duplicated(cis_eqtl_probefiles[[i]]$SNP, fromLast = TRUE))
-# )
-# and it looked like many rows were exact duplicates of each other. so not just duplicate SNPs.
-# therefore I added distinct() to the filtering. afterwards there were no duplicates but some probe files
-# are left with very few SNPs.
-# I do find this confusing, because during manual inspection I spotted a couple of duplicate SNPs due to 
-# strand-flipping and now I cannot find them anymore.
