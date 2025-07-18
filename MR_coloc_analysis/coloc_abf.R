@@ -1,5 +1,5 @@
 
-source("C:/Users/emma/Documents/git/mr-coloc/setup.R")
+source("setup.R")
 
 # Script for colocalisation analysis
 # Adapted from https://github.com/LN-Ceru/LN-Internship2/blob/main/MDD_coloc.r
