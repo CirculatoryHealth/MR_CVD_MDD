@@ -4,15 +4,7 @@
 rm(list = ls())
 source("Scripts/setup.R")
 
-sci_10_format <- function(x, digits = 2) {
-  ifelse(
-    x == 0,
-    "0",
-    sprintf("%.2f × 10^%d", signif(x / 10^floor(log10(abs(x))), digits), floor(log10(abs(x))))
-  )
-}
-
-
+# Load the MR results
 load(here("Results", "MR", "MR_DEP-CVD_results.RData"))
 
 mr_beta <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_output"))) |>
@@ -28,10 +20,6 @@ ivw_forward <- special_or |>
   mutate(across(c(b, se), ~ round(.x, digits = 4))) |>
   mutate(across(c(or, or_lci95, or_uci95), ~ round(.x, digits = 2))) |>
   mutate(across(c(pval, pval.fdr), ~ formatC(.x, format = "e", digits = 2)))
-ivw_forward
-
-# sci_10_format(mr_beta$pval)
-
 
 
 # Cochrane data from the 'rmeta'-package
@@ -42,11 +30,6 @@ cochrane_from_rmeta <-
     upper = c(NA, 1.1569, 1.1688, 1.1938, 1.2629, 1.4129, 1.2599, 1.1806, 1.0051)
   ))
 
-ivw_forward$b
-ivw_forward$b - ivw_forward$se
-ivw_forward$b + ivw_forward$se
-ivw_forward$b
-
 cochrane_forward_beta <-
   structure(list(
     mean  = c(NA, 0.0953, 0.1014, 0.0694, 0.0905, 0.2039, 0.1788, 0.0420, 0.0004),
@@ -56,7 +39,7 @@ cochrane_forward_beta <-
 
 tabletext <- cbind(
   c("N SNPs", ivw_forward$nsnp),
-  c("Exposure", ivw_forward$exposure),
+  c("Exposure", "MD", "MD", "MD", "MD", "MD", "MD", "MD", "MD"),
   c("Outcome", ivw_forward$outcome),
   c("OR", "1.1", "1.11", "1.07", "1.09", "1.23", "1.2", "n.a.", "n.a."), # add note to CAC and CIMT!!
   c("p-value", "*9.47 x 10\u207B\u2078", "*1.52 x 10\u207B\u2077", "6.86 x 10\u207B\u00B2", "7.32 x 10\u207B\u00B2", "*4.76 x 10\u207B\u2075", "*3.76 x 10\u207B\u00B2\u00B2", "3.38 x 10\u207B\u00B9", "8.28 x 10\u207B\u00B9")
@@ -78,7 +61,6 @@ forestplot(tabletext,
 # saved as pdf 12x8
 
 # Same for reverse MR
-
 load(here("Results", "MR", "CVD_ReverseMR_results.RData"))
 
 reverse_beta <- as.data.frame(do.call("rbind", map(main_results_mr, "mr_output"))) |>
@@ -95,8 +77,6 @@ ivw_reverse <- special_or |>
   mutate(across(c(or, or_lci95, or_uci95), ~ round(.x, digits = 2))) |>
   mutate(across(c(pval, pval.fdr), ~ formatC(.x, format = "e", digits = 2)))
 
-ivw_reverse
-
 # Cochrane data from the 'rmeta'-package
 cochrane_reverse <-
   structure(list(
@@ -104,10 +84,6 @@ cochrane_reverse <-
     lower = c(NA, 0.9802, 0.9702, 0.9819, 0.9832, NA, 0.9870, 0.9958, 0.5536),
     upper = c(NA, 1.0555, 1.0560, 1.0303, 1.0356, NA, 1.0187, 1.0169, 1.1729)
   ))
-
-ivw_reverse$b
-ivw_reverse$b - ivw_reverse$se
-ivw_reverse$b + ivw_reverse$se
 
 cochrane_reverse_beta <-
   structure(list(
@@ -119,7 +95,7 @@ cochrane_reverse_beta <-
 tabletext2 <- cbind(
   c("N SNPs", "23", "23", "7", "3", "0", "173", "6", "8"),
   c("Exposure", "ALLSTROKE", "IS", "CES", "LAS", "SVD", "CAD", "CAC", "CIMT"),
-  c("Outcome", "DEP", "DEP", "DEP", "DEP", "DEP", "DEP", "DEP", "DEP"),
+  c("Outcome", "MD", "MD", "MD", "MD", "MD", "MD", "MD", "MD"),
   c("OR", "1.02", "1.01", "1.01", "1.01", "n.a.", "1.0", "1.01", "0.81"),
   c("p-value", "1.93 x 10\u207B\u00B9", "4.18 x 10\u207B\u00B9", "4.96 x 10\u207B\u00B9", "3.26 x 10\u207B\u00B9", "n.a.", "6.31 x 10\u207B\u00B9", "9.18 x 10\u207B\u00B2", "1.04 x 10\u207B\u00B9")
   # c("p-value (FDR)", "4.51e-01", "5.78e-01", "5.78e-01", "5.70e-01", "NA", "6.31e-01", "3.63e-01", "3.63e-01")
@@ -142,6 +118,20 @@ forestplot(tabletext2,
 
 new_text <- rbind(tabletext, tabletext2)
 new_text
+
+# Start PNG device
+png("combined_forest.png", width = 574, height = 610, units = "px", res = 100)
+
+
+# Install Cairo if you haven't already
+install.packages("Cairo")
+
+library(forestplot)
+library(Cairo)
+
+# Use CairoPNG instead of png
+Cairo::CairoPNG("forestplot_output.png", width = 1000, height = 800, res = 150)
+
 forestplot(new_text,
   mean = c(cochrane_forward_beta$mean, cochrane_reverse_beta$mean),
   lower = c(cochrane_forward_beta$lower, cochrane_reverse_beta$lower),
@@ -153,5 +143,14 @@ forestplot(new_text,
   col = fpColors(box = "black", line = "black"),
   vertices = TRUE
 )
+dev.off()
+
+
+# Start PNG device
+png("combined_forest.png", width = 574, height = 610, units = "px", res = 100)
+grid::grid.newpage()
+grid::grid.draw(combined_forest)
+dev.off()
 
 # save as pdf 12x8
+ggsave(plot = combined_forest, filename = here("Results", "MR", "forestplot_MR.pdf"), width = 18, height = 12)
