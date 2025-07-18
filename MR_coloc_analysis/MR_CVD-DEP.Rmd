@@ -8,7 +8,7 @@ date: "2024-02-19"
 knitr::opts_chunk$set(echo = FALSE, comment = NULL, warning = FALSE, message = FALSE)
 
 #Try MR
-source("C:/Users/emma/Documents/git/mr-coloc/Scripts/setup.R")
+source("Scripts/setup.R")
 
 # required columns for outcome: rsid, beta, se, eaf, effect_allele_col, other_allele_col, pval
 ```
